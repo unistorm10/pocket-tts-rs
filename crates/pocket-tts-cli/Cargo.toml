@@ -1,0 +1,15 @@
+[package]
+name = "pocket-tts-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "pocket-tts"
+path = "src/main.rs"
+
+[dependencies]
+pocket-tts-core = { path = "../pocket-tts-core" }
+pocket-tts-model = { path = "../pocket-tts-model" }
+clap = { workspace = true }
+anyhow = { workspace = true }
