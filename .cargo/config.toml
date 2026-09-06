@@ -1,0 +1,5 @@
+[target.aarch64-unknown-linux-gnu]
+# candle-core -> gemm -> gemm-f16 emits `fullfp16` NEON assembly that some
+# aarch64 rustc default targets do not enable, causing a build failure
+# ("instruction requires: fullfp16"). See docs/PORTING_NOTES.md "Build notes".
+rustflags = ["-C", "target-feature=+fp16"]
