@@ -1,8 +1,6 @@
 name: Pocket TTS resident-model TTFA and RTF benchmark
 
 on:
-  push:
-    branches: [feat/standalone-v4-foundation]
   workflow_dispatch:
 
 permissions:

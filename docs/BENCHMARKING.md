@@ -72,3 +72,9 @@ python3 benchmarks/benchmark_resident.py --binary /path/to/pocket-tts \
   --output resident.json --repeats 2
 ```
 `resident.json` and `resident.md` retain per-trial measurements. The corresponding self-hosted Actions workflow is `benchmark-resident.yml`. Neither benchmark measures neural-quality/WER/speaker similarity or concurrent HTTP capacity; these require a separate evaluation protocol. 
+
+## Verified resident run
+
+[Resident run #40380071569](https://github.com/unistorm10/pocket-tts-rs/actions/runs/40380071569) passed **144/144** real streaming HTTP generations, bringing the total to **288 successful trials** across both benchmark modes. [Download its JSON and Markdown results](https://github.com/unistorm10/pocket-tts-rs/actions/runs/40380071569/artifacts/12677703174). The 7M model achieved **24 ms p50 preset-voice TTFA** at 4 CPU threads FP32 with a resident model, and **20 ms median TTFA for five cached reference-voice requests** after one uncached clone at 1,414 ms. For 18M REFL the corresponding values were 34/28 ms (first clone 1,543 ms), and default English 177/125 ms (first clone 1,789 ms).
+
+The full interpreted results and 1-thread/INT8 comparisons are in [RESULTS_2026-10-26.md](RESULTS_2026-10-26.md). Both benchmark workflows run on manual dispatch only after the initial verification.
