@@ -1,6 +1,8 @@
 name: Pocket TTS Rust CI
 
 on:
+  push:
+    branches: [feat/standalone-v4-foundation]
   pull_request:
     branches: [main]
   workflow_dispatch:
