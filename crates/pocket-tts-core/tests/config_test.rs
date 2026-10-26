@@ -105,3 +105,17 @@ fn config_parses_compact_18m_with_explicit_null_overrides() {
     assert_eq!(config.flow_lm.lookup_table.rank, None);
     assert!(config.mimi.decoder_transformer.is_some());
 }
+
+#[test]
+fn every_bundled_model_uses_full_voice_cloning_assets() {
+    for yaml in [
+        include_str!("fixtures/english.yaml"),
+        include_str!("fixtures/english-v4.yaml"),
+        include_str!("fixtures/english-7m-v4.yaml"),
+        include_str!("fixtures/english-18m-refl-v4.yaml"),
+    ] {
+        let config = Config::from_yaml_str(yaml).expect("full-model config should parse");
+        assert!(config.weights_path.as_deref().unwrap().starts_with("hf://kyutai/pocket-tts/"));
+        assert!(config.flow_lm.lookup_table.tokenizer_path.starts_with("hf://kyutai/pocket-tts/"));
+    }
+}

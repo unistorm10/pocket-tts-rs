@@ -3,7 +3,6 @@
 # that pocket-tts-core::config parses the real project's config format.
 
 weights_path: hf://kyutai/pocket-tts/languages/english/model.safetensors@39592ff23c9ef80098bb74895d104c26275fe2c9
-weights_path_without_voice_cloning: hf://kyutai/pocket-tts-without-voice-cloning/languages/english/model.safetensors@d29db7978e464fb90cb3359ee0c69a273b9142cc
 default_temperature: 0.3
 
 
@@ -23,7 +22,7 @@ flow_lm:
     dim: 1024
     n_bins: 4000
     tokenizer: sentencepiece
-    tokenizer_path: hf://kyutai/pocket-tts-without-voice-cloning/languages/english/tokenizer.model@d29db7978e464fb90cb3359ee0c69a273b9142cc
+    tokenizer_path: hf://kyutai/pocket-tts/languages/english/tokenizer.model@db04f0e653473e5c7333c69686ac92b7460b0c1d
 
 mimi:
   dtype: float32
