@@ -60,7 +60,30 @@ jobs:
               --repeat 2 \
               --output "$RUNNER_TEMP/pocket-resident-acceptance/${variant}.wav"
           done
-      - name: Verify all six generated WAV files independently
+      - name: Exercise local WAV voice upload with real Mimi encoder
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, pathlib, urllib.request
+          url = "https://huggingface.co/kyutai/tts-voices/resolve/main/alba-mackenna/casual.wav"
+          request = urllib.request.Request(
+              url, headers={"Authorization": "Bearer " + os.environ["HF_TOKEN"]}
+          )
+          with urllib.request.urlopen(request, timeout=90) as response:
+              audio = response.read()
+          assert len(audio) > 1000 and audio[:4] == b"RIFF", "invalid official voice WAV"
+          path = pathlib.Path(os.environ["RUNNER_TEMP"]) / "pocket-resident-acceptance/local-voice.wav"
+          path.write_bytes(audio)
+          print("real local voice WAV prepared without writing to repository")
+          PY
+          cargo run --release --locked -p pocket-tts-cli -- generate-resident \
+            --reference-bin "$HOME/.cache/pocket_tts_rs_reference_target/release/pocket-tts" \
+            --language english_7m_2026-10 \
+            --voice "$RUNNER_TEMP/pocket-resident-acceptance/local-voice.wav" \
+            --text "This is a real cloned voice uploaded from a local wave file." \
+            --threads 4 --repeat 1 \
+            --output "$RUNNER_TEMP/pocket-resident-acceptance/local-upload.wav"
+      - name: Independently verify seven actual WAV files
         run: |
           python3 - <<'PY'
           import os, pathlib, struct, wave
@@ -75,4 +98,9 @@ jobs:
                       pcm=wav.readframes(wav.getnframes())
                       assert any(byte!=0 for byte in pcm)
                   print(f"verified: {model} repeat={n} bytes={len(pcm)}")
+          with wave.open(str(root/"local-upload.wav"),"rb") as wav:
+              assert wav.getframerate()==24000 and wav.getnchannels()==1
+              assert wav.getnframes()>2400
+              assert any(byte!=0 for byte in wav.readframes(wav.getnframes()))
+          print("verified: local-WAV reference audio through multipart voice cloning")
           PY
