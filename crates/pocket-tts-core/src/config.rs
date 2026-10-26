@@ -1,10 +1,11 @@
-//! Configuration models mirroring `pocket_tts/utils/config.py`.
+//! Configuration models mirroring Pocket TTS v4.0.1 `pocket_tts/utils/config.py`.
 //!
 //! Field names and nesting intentionally match the Python `pydantic` models
 //! 1:1 so that YAML config files from the original project parse unchanged.
 //! `deny_unknown_fields` mirrors `ConfigDict(extra="forbid")` in `StrictModel`.
 
 use serde::Deserialize;
+use std::collections::BTreeMap;
 use std::path::Path;
 
 /// Mirrors `pocket_tts.utils.config.FlowConfig`.
@@ -30,6 +31,15 @@ pub struct FlowLMTransformerConfig {
     pub d_model: i64,
     pub num_heads: i64,
     pub num_layers: i64,
+    /// Attention projection width; defaults to d_model in upstream inference.
+    #[serde(default)]
+    pub attn_dim: Option<i64>,
+    /// Number of distinct KV heads for grouped-query attention.
+    #[serde(default)]
+    pub num_kv_heads: Option<i64>,
+    /// FFN width override; defaults to d_model * hidden_scale.
+    #[serde(default)]
+    pub dim_feedforward: Option<i64>,
 }
 
 /// Mirrors `pocket_tts.utils.config.LookupTable`.
@@ -40,6 +50,9 @@ pub struct LookupTable {
     pub n_bins: i64,
     pub tokenizer: String,
     pub tokenizer_path: String,
+    /// Low-rank lookup embedding table, present in compact variants.
+    #[serde(default)]
+    pub rank: Option<i64>,
 }
 
 /// Mirrors `pocket_tts.utils.config.FlowLMConfig`.
@@ -49,6 +62,9 @@ pub struct FlowLMConfig {
     pub dtype: String,
     pub flow: FlowConfig,
     pub transformer: FlowLMTransformerConfig,
+    /// Optional projection size from transformer backbone to latent heads.
+    #[serde(default)]
+    pub z_dim: Option<i64>,
     pub lookup_table: LookupTable,
     #[serde(default)]
     pub weights_path: Option<String>,
@@ -118,6 +134,12 @@ pub struct MimiConfig {
     pub inner_dim: Option<i64>,
     #[serde(default)]
     pub outer_dim: Option<i64>,
+    /// Smaller models may use a distinct decoder SEANet topology.
+    #[serde(default)]
+    pub decoder_seanet: Option<SEANetConfig>,
+    /// Smaller models may use a distinct decoder transformer topology.
+    #[serde(default)]
+    pub decoder_transformer: Option<MimiTransformerConfig>,
 }
 
 /// Mirrors `pocket_tts.utils.config.Config`, the top-level YAML document.
@@ -136,10 +158,22 @@ pub struct Config {
     pub remove_semicolons: bool,
     #[serde(default = "default_true")]
     pub append_terminal_punctuation: bool,
+    #[serde(default = "default_true")]
+    pub capitalize_first_letter: bool,
+    /// Character substitutions applied before text tokenization.
+    #[serde(default)]
+    pub replace_characters: BTreeMap<String, String>,
     #[serde(default)]
     pub model_recommended_frames_after_eos: Option<i64>,
     #[serde(default = "default_temperature")]
     pub default_temperature: f64,
+    /// Default EOS stopping criterion (-4.0 in Pocket TTS v4.0.1).
+    #[serde(default = "default_eos_threshold")]
+    pub default_eos_threshold: f64,
+}
+
+fn default_eos_threshold() -> f64 {
+    -4.0
 }
 
 fn default_true() -> bool {
@@ -147,7 +181,7 @@ fn default_true() -> bool {
 }
 
 fn default_temperature() -> f64 {
-    0.7
+    0.3
 }
 
 impl Config {

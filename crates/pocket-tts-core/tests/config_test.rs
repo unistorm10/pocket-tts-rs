@@ -56,3 +56,44 @@ mimi:
 "#;
     assert!(Config::from_yaml_str(yaml).is_err());
 }
+
+
+/// Current upstream model configuration must deserialize without schema drift.
+/// Fixture copied from kyutai-labs/pocket-tts tag v4.0.1.
+#[test]
+fn config_parses_current_english() {
+    let config = Config::from_yaml_str(include_str!("fixtures/english-v4.yaml"))
+        .expect("v4.0.1 default English configuration should parse");
+    assert_eq!(config.default_temperature, 0.3);
+    assert_eq!(config.default_eos_threshold, -4.0);
+    assert!(config.capitalize_first_letter);
+    assert_eq!(config.replace_characters.get("’").map(String::as_str), Some("'"));
+    assert_eq!(config.flow_lm.lookup_table.tokenizer, "tokenizers");
+    assert_eq!(config.flow_lm.transformer.attn_dim, None);
+    assert_eq!(config.mimi.decoder_seanet.as_ref().map(|x| x.dimension), None);
+}
+
+#[test]
+fn config_parses_compact_7m_with_asymmetric_decoder_and_gqa() {
+    let config = Config::from_yaml_str(include_str!("fixtures/english-7m-v4.yaml"))
+        .expect("v4.0.1 compact 7M configuration should parse");
+    assert_eq!(config.flow_lm.flow.r#type, "drifting");
+    assert_eq!(config.flow_lm.z_dim, Some(64));
+    assert_eq!(config.flow_lm.transformer.attn_dim, Some(512));
+    assert_eq!(config.flow_lm.transformer.num_kv_heads, Some(2));
+    assert_eq!(config.flow_lm.lookup_table.rank, Some(64));
+    assert_eq!(config.mimi.decoder_seanet.as_ref().unwrap().dimension, 128);
+    assert_eq!(config.mimi.decoder_transformer.as_ref().unwrap().num_layers, 12);
+    assert_eq!(config.default_eos_threshold, -1.0);
+}
+
+#[test]
+fn config_parses_compact_18m_with_explicit_null_overrides() {
+    let config = Config::from_yaml_str(include_str!("fixtures/english-18m-refl-v4.yaml"))
+        .expect("v4.0.1 compact 18M REFL configuration should parse");
+    assert_eq!(config.flow_lm.z_dim, Some(64));
+    assert_eq!(config.flow_lm.transformer.attn_dim, None);
+    assert_eq!(config.flow_lm.transformer.num_kv_heads, None);
+    assert_eq!(config.flow_lm.lookup_table.rank, None);
+    assert!(config.mimi.decoder_transformer.is_some());
+}
