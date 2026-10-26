@@ -52,6 +52,7 @@ jobs:
           python3 patches/candle/0005_z_projection.py "$UPSTREAM_CANDLE"
           python3 patches/candle/0006_asymmetric_mimi.py "$UPSTREAM_CANDLE"
           python3 patches/candle/0007_mimi_projection_bridge.py "$UPSTREAM_CANDLE"
+          python3 patches/candle/0008_grouped_query_attention.py "$UPSTREAM_CANDLE"
           cargo fmt --manifest-path "$UPSTREAM_CANDLE/Cargo.toml" --all
       - name: Compile actual upstream Candle FlowLM and Mimi inference example
         run: |
