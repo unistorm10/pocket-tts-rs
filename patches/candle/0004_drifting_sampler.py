@@ -72,7 +72,8 @@ patch("models/flow_lm.rs",
       """        let next_latent = match self.flow_type.as_str() {
             "drifting" => self.flow_net.forward_step_cached(&noise, &modulations[0])?,
             "pointwise" => {
-                (noise + self.flow_net.forward_step_cached(&noise, &modulations[0])?)?
+                let direction = self.flow_net.forward_step_cached(&noise, &modulations[0])?;
+                (noise + direction)?
             }
             "lsd" => lsd_decode(&self.flow_net, &modulations, &noise)?,
             other => anyhow::bail!("unsupported flow sampler: {other}"),
