@@ -76,7 +76,7 @@ patch("models/flow_lm.rs",
                 (noise + direction)?
             }
             "lsd" => lsd_decode(&self.flow_net, &modulations, &noise)?,
-            other => anyhow::bail!("unsupported flow sampler: {other}"),
+            other => return Err(candle_core::Error::Msg(format!("unsupported flow sampler: {other}"))),
         };""")
 patch("tts_model.rs",
       """        let hidden_dim = dim * config.flow_lm.transformer.hidden_scale;
