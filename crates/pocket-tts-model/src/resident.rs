@@ -8,8 +8,8 @@
 use crate::{inspect_wav, GeneratedAudio, SynthesisEngine, SynthesisRequest, Voice};
 use anyhow::{bail, Context, Result};
 use reqwest::blocking::{multipart, Client};
-use std::fs::File;
-use std::io::{Read, Write};
+use std::fs::{File, OpenOptions};
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
@@ -48,6 +48,43 @@ impl Default for ResidentOptions {
             request_timeout: Duration::from_secs(120),
         }
     }
+}
+
+/// Finalize a WAV received via Kyutai's unseekable HTTP stream.
+///
+/// The upstream writer intentionally advertises 2 billion bytes before the
+/// audio length is known. WAV readers such as hound reject that provisional
+/// header after the stream ends. Patch RIFF/data sizes using the actual bytes
+/// written without touching PCM samples.
+pub fn finalize_streamed_wav(path: &Path) -> Result<()> {
+    let mut file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(path)
+        .with_context(|| format!("opening streamed WAV {}", path.display()))?;
+    let mut header = [0u8; 44];
+    file.read_exact(&mut header).context("streamed WAV shorter than header")?;
+    anyhow::ensure!(
+        &header[..4] == b"RIFF"
+            && &header[8..12] == b"WAVE"
+            && &header[12..16] == b"fmt "
+            && &header[36..40] == b"data",
+        "invalid 44-byte PCM WAV header"
+    );
+    let length = file.metadata()?.len();
+    let pcm_bytes = length.checked_sub(44).context("short WAV length")?;
+    anyhow::ensure!(pcm_bytes % 2 == 0, "incomplete 16-bit PCM sample");
+    anyhow::ensure!(
+        pcm_bytes <= u64::from(u32::MAX - 36),
+        "WAV exceeds RIFF 32-bit size limit"
+    );
+    let pcm_bytes = pcm_bytes as u32;
+    file.seek(SeekFrom::Start(4))?;
+    file.write_all(&(36 + pcm_bytes).to_le_bytes())?;
+    file.seek(SeekFrom::Start(40))?;
+    file.write_all(&pcm_bytes.to_le_bytes())?;
+    file.flush()?;
+    Ok(())
 }
 
 /// Owned local Rust server process. Drop kills and reaps only the child it
@@ -297,6 +334,7 @@ impl SynthesisEngine for ResidentRustServer {
         }
         writer.flush()?;
         drop(writer);
+        finalize_streamed_wav(output)?;
         match inspect_wav(output) {
             Ok(audio) => Ok(audio),
             Err(err) => {
@@ -319,6 +357,40 @@ impl Drop for ResidentRustServer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn fixes_unseekable_stream_length_without_changing_pcm() {
+        let file = std::env::temp_dir().join(format!(
+            "pocket-tts-stream-fix-{}.wav",
+            std::process::id()
+        ));
+        let spec = hound::WavSpec {
+            channels: 1,
+            sample_rate: 24_000,
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        };
+        {
+            let mut writer = hound::WavWriter::create(&file, spec).unwrap();
+            for i in 0..4800 {
+                writer.write_sample(if i % 2 == 0 { 1200i16 } else { -1200i16 }).unwrap();
+            }
+            writer.finalize().unwrap();
+        }
+        let original = std::fs::read(&file).unwrap();
+        {
+            let mut out = OpenOptions::new().write(true).open(&file).unwrap();
+            out.seek(SeekFrom::Start(4)).unwrap();
+            out.write_all(&2_000_000_036u32.to_le_bytes()).unwrap();
+            out.seek(SeekFrom::Start(40)).unwrap();
+            out.write_all(&2_000_000_000u32.to_le_bytes()).unwrap();
+        }
+        finalize_streamed_wav(&file).unwrap();
+        let fixed = std::fs::read(&file).unwrap();
+        assert_eq!(fixed, original);
+        assert_eq!(inspect_wav(&file).unwrap().samples, 4800);
+        std::fs::remove_file(file).unwrap();
+    }
+
     #[test]
     fn options_reject_missing_executable() {
         let opts = ResidentOptions::default();

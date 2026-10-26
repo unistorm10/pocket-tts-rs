@@ -8,6 +8,7 @@ use pocket_tts_model::{
     inspect_wav, OfficialRustCli, ResidentOptions, ResidentRustServer, SynthesisEngine,
     SynthesisRequest, Voice,
 };
+use pocket_tts_model::resident::finalize_streamed_wav;
 use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -180,6 +181,7 @@ fn main() -> Result<()> {
                 };
                 file.flush()?;
                 drop(file);
+                finalize_streamed_wav(&file_path)?;
                 let audio = inspect_wav(&file_path)?;
                 println!(
                     "resident_request={} file={} ttfa_first_pcm_ms={:.1} total_ms={:.1} rate={} samples={} peak={:.6} rms={:.6}",
