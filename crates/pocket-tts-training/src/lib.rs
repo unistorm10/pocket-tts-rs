@@ -75,9 +75,12 @@ impl TrainingPlan {
             .current_dir(&source)
             .output()
             .context("git is required to verify the upstream training source")?;
-        anyhow::ensure!(revision.status.success(), "could not verify Kyutai checkout revision");
-        let head = String::from_utf8(revision.stdout)
-            .context("git returned a non-UTF8 revision")?;
+        anyhow::ensure!(
+            revision.status.success(),
+            "could not verify Kyutai checkout revision"
+        );
+        let head =
+            String::from_utf8(revision.stdout).context("git returned a non-UTF8 revision")?;
         anyhow::ensure!(
             head.trim() == UPSTREAM_V4_0_1,
             "training source is not pinned to Kyutai v4.0.1: expected {UPSTREAM_V4_0_1}, got {}",
