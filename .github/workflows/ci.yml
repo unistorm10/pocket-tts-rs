@@ -48,6 +48,7 @@ jobs:
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
       - name: Checkout official Kyutai v4.0.1 trainer
+        if: github.event_name == 'workflow_dispatch'
         uses: actions/checkout@v4
         with:
           repository: kyutai-labs/pocket-tts
@@ -55,14 +56,17 @@ jobs:
           path: upstream/kyutai-pocket-tts
 
       - name: Verify pinned training launcher without running training
+        if: github.event_name == 'workflow_dispatch'
         run: |
           cargo run --locked -p pocket-tts-training -- \
             --source upstream/kyutai-pocket-tts --recipe finetune
 
       - name: Download and inspect pinned public English 7M checkpoint
+        if: github.event_name == 'workflow_dispatch'
         run: cargo run --locked -p xtask -- prefetch english-7m --without-voice-cloning
 
       - name: Download and inspect current default English checkpoint
+        if: github.event_name == 'workflow_dispatch'
         run: cargo run --locked -p xtask -- prefetch english --without-voice-cloning
 
   full-weights:

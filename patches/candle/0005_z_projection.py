@@ -70,7 +70,7 @@ patch("models/flow_lm.rs",
             .forward(&last_frame)?""",
       """        let projected = match &self.z_proj {
             Some(proj) => proj.forward(&last_frame)?,
-            None => last_frame,
+            None => last_frame.clone(),
         };
         let eos_score = self
             .out_eos
