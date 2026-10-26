@@ -103,14 +103,18 @@ fn expected_checkpoint_sha256(model: &str) -> Result<&'static str> {
     match model {
         "english" => Ok("bc96b82436c5ec00d3118ef3b01bc3358423e1766ecae3dca0aeea84789e7d74"),
         "english-7m" => Ok("1200a5d97d82b95804e76e3042ce88787773486a0d95e00737650667c2bee844"),
-        "english-18m-refl" => Ok("c99f4a179cffa070cdeb3ffc1ae950ebf16038c762c84dd79997868ac0a806c8"),
+        "english-18m-refl" => {
+            Ok("c99f4a179cffa070cdeb3ffc1ae950ebf16038c762c84dd79997868ac0a806c8")
+        }
         _ => bail!("unsupported full voice-cloning model {model:?}"),
     }
 }
 
 fn prefetch(model: &str) -> Result<()> {
     let config = Config::from_yaml_str(config_yaml(model)?)?;
-    let weights_ref = config.weights_path.as_deref()
+    let weights_ref = config
+        .weights_path
+        .as_deref()
         .context("full voice-cloning checkpoint path is required")?;
     anyhow::ensure!(
         weights_ref.starts_with("hf://kyutai/pocket-tts/"),
@@ -196,7 +200,10 @@ fn main() -> Result<()> {
         "prefetch" => {
             let model = args.next().context(usage())?;
             for arg in args {
-                bail!("unsupported argument {arg:?}: encoder-disabled models are prohibited; {}", usage());
+                bail!(
+                    "unsupported argument {arg:?}: encoder-disabled models are prohibited; {}",
+                    usage()
+                );
             }
             prefetch(&model)
         }

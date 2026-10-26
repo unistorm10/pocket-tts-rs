@@ -115,7 +115,15 @@ fn every_bundled_model_uses_full_voice_cloning_assets() {
         include_str!("fixtures/english-18m-refl-v4.yaml"),
     ] {
         let config = Config::from_yaml_str(yaml).expect("full-model config should parse");
-        assert!(config.weights_path.as_deref().unwrap().starts_with("hf://kyutai/pocket-tts/"));
-        assert!(config.flow_lm.lookup_table.tokenizer_path.starts_with("hf://kyutai/pocket-tts/"));
+        assert!(config
+            .weights_path
+            .as_deref()
+            .unwrap()
+            .starts_with("hf://kyutai/pocket-tts/"));
+        assert!(config
+            .flow_lm
+            .lookup_table
+            .tokenizer_path
+            .starts_with("hf://kyutai/pocket-tts/"));
     }
 }
