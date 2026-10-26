@@ -4,6 +4,7 @@
 use anyhow::{bail, Context, Result};
 use pocket_tts_core::config::Config;
 use pocket_tts_core::download::download_if_necessary;
+use pocket_tts_core::weights::ModelWeights;
 use safetensors::SafeTensors;
 use serde_json::json;
 use sha2::{Digest, Sha256};
@@ -101,6 +102,38 @@ fn prefetch(model: &str, without_voice_cloning: bool) -> Result<()> {
         .with_context(|| format!("downloading pinned checkpoint for {model}"))?;
     let inspection = inspect_weights(&checkpoint, Some(weights_ref))?;
     println!("{}", serde_json::to_string_pretty(&inspection)?);
+
+    // Force an actual checkpoint tensor through Candle's native safetensors loader
+    // and arithmetic kernels. This is a weight-loading smoke test, not TTS inference.
+    let weights = ModelWeights::from_file(&checkpoint)?;
+    let safe_bytes = std::fs::read(&checkpoint)?;
+    let safe = SafeTensors::deserialize(&safe_bytes)?;
+    let first = weights
+        .names()?
+        .into_iter()
+        .filter_map(|name| {
+            let tensor = safe.tensor(&name).ok()?;
+            let elements = tensor.shape().iter().product::<usize>();
+            if elements > 0 && elements <= 4096 {
+                Some((name, elements))
+            } else {
+                None
+            }
+        })
+        .min_by_key(|(_, elements)| *elements)
+        .context("checkpoint has no small tensors for Candle smoke test")?;
+    let device = candle_core::Device::Cpu;
+    let tensor = weights.get(&first.0, candle_core::DType::F32, &device)?;
+    let sum_of_squares = tensor
+        .sqr()?
+        .sum_all()?
+        .to_dtype(candle_core::DType::F32)?
+        .to_scalar::<f32>()?;
+    anyhow::ensure!(sum_of_squares.is_finite(), "Candle checkpoint tensor is non-finite");
+    println!(
+        "Candle real-weight probe: tensor={:?} elements={} sum_of_squares={}",
+        first.0, first.1, sum_of_squares
+    );
 
     println!("Downloading pinned tokenizer");
     let tokenizer_ref = &config.flow_lm.lookup_table.tokenizer_path;
