@@ -24,6 +24,12 @@ pub fn make_cache_directory() -> Result<PathBuf> {
 /// Resolves `file_path` to a local filesystem path, downloading it first if
 /// necessary. See module docs for the three supported schemes.
 pub fn download_if_necessary(file_path: &str) -> Result<PathBuf> {
+    // A voice-cloning-capable model is mandatory, including in CI.
+    // Block the encoder-disabled repository for checkpoints AND tokenizers.
+    anyhow::ensure!(
+        !file_path.contains("pocket-tts-without-voice-cloning"),
+        "encoder-disabled repository is prohibited; use the full gated kyutai/pocket-tts source"
+    );
     if file_path.starts_with("http://") || file_path.starts_with("https://") {
         download_http(file_path)
     } else if let Some(rest) = file_path.strip_prefix("hf://") {
@@ -108,5 +114,21 @@ mod hex {
             s.push_str(&format!("{b:02x}"));
         }
         s
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::download_if_necessary;
+
+    #[test]
+    fn rejected_model_source_never_reaches_hf_or_http() {
+        for path in [
+            "hf://kyutai/pocket-tts-without-voice-cloning/languages/english/model.safetensors",
+            "https://huggingface.co/kyutai/pocket-tts-without-voice-cloning/resolve/main/tokenizer.json",
+            "pocket-tts-without-voice-cloning/model.safetensors",
+        ] {
+            assert!(download_if_necessary(path).is_err());
+        }
     }
 }

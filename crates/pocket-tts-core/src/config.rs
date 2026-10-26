@@ -151,8 +151,6 @@ pub struct Config {
     #[serde(default)]
     pub weights_path: Option<String>,
     #[serde(default)]
-    pub weights_path_without_voice_cloning: Option<String>,
-    #[serde(default)]
     pub pad_with_spaces_for_short_inputs: bool,
     #[serde(default)]
     pub remove_semicolons: bool,

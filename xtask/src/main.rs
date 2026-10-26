@@ -13,7 +13,7 @@ use std::io::{BufReader, Read};
 use std::path::Path;
 
 fn usage() -> &'static str {
-    "Usage: cargo run -p xtask -- prefetch <english|english-7m|english-18m-refl> [--without-voice-cloning]\n       cargo run -p xtask -- inspect <checkpoint.safetensors>"
+    "Usage: cargo run -p xtask -- prefetch <english|english-7m|english-18m-refl>\n       cargo run -p xtask -- inspect <checkpoint.safetensors>"
 }
 
 fn config_yaml(model: &str) -> Result<&'static str> {
@@ -95,63 +95,36 @@ fn inspect_weights(path: &Path, repo_ref: Option<&str>) -> Result<serde_json::Va
     }))
 }
 
-fn expected_checkpoint_sha256(model: &str, without_voice_cloning: bool) -> Option<&'static str> {
-    match (model, without_voice_cloning) {
-        ("english", false) => {
-            Some("bc96b82436c5ec00d3118ef3b01bc3358423e1766ecae3dca0aeea84789e7d74")
-        }
-        ("english-7m", false) => {
-            Some("1200a5d97d82b95804e76e3042ce88787773486a0d95e00737650667c2bee844")
-        }
-        ("english-18m-refl", false) => {
-            Some("c99f4a179cffa070cdeb3ffc1ae950ebf16038c762c84dd79997868ac0a806c8")
-        }
-        ("english", true) => {
-            Some("4c56cbd171c63e8a26ea61f5d48b8a0cd8f3c51f4652c0ab9a19bfcced8c931d")
-        }
-        ("english-7m", true) => {
-            Some("aea704a2989277c1a700abc16fb1442cb6baa2fa9ad32251ef7a5f91e4eb7d58")
-        }
-        // Reduced 18M REFL checkpoint remains unverified; no hash is claimed.
-        _ => None,
+fn expected_checkpoint_sha256(model: &str) -> Result<&'static str> {
+    match model {
+        "english" => Ok("bc96b82436c5ec00d3118ef3b01bc3358423e1766ecae3dca0aeea84789e7d74"),
+        "english-7m" => Ok("1200a5d97d82b95804e76e3042ce88787773486a0d95e00737650667c2bee844"),
+        "english-18m-refl" => Ok("c99f4a179cffa070cdeb3ffc1ae950ebf16038c762c84dd79997868ac0a806c8"),
+        _ => bail!("unsupported full voice-cloning model {model:?}"),
     }
 }
 
-fn prefetch(model: &str, without_voice_cloning: bool) -> Result<()> {
+fn prefetch(model: &str) -> Result<()> {
     let config = Config::from_yaml_str(config_yaml(model)?)?;
-    let weights_ref = if without_voice_cloning {
-        config
-            .weights_path_without_voice_cloning
-            .as_deref()
-            .context("config does not provide non-voice-cloning weights")?
-    } else {
-        config
-            .weights_path
-            .as_deref()
-            .context("config does not provide model weights")?
-    };
-    println!("Downloading pinned checkpoint for {model} via hf-hub cache");
+    let weights_ref = config.weights_path.as_deref()
+        .context("full voice-cloning checkpoint path is required")?;
+    anyhow::ensure!(
+        weights_ref.starts_with("hf://kyutai/pocket-tts/"),
+        "model must come from the full gated kyutai/pocket-tts repository"
+    );
+    println!("Downloading authenticated, full voice-cloning checkpoint for {model}");
     let checkpoint = download_if_necessary(weights_ref)
-        .with_context(|| format!("downloading pinned checkpoint for {model}"))?;
+        .with_context(|| format!("downloading full checkpoint for {model}"))?;
     let inspection = inspect_weights(&checkpoint, Some(weights_ref))?;
-    if let Some(expected) = expected_checkpoint_sha256(model, without_voice_cloning) {
-        anyhow::ensure!(
-            inspection["sha256"].as_str() == Some(expected),
-            "checkpoint SHA-256 mismatch for {model}; refusing unexpected weights"
-        );
-    }
-    if !without_voice_cloning {
-        anyhow::ensure!(
-            inspection["voice_cloning_encoder_active"] == true,
-            "requested the full voice-cloning checkpoint, but the model has no active mimi.encoder tensors; refusing a reduced checkpoint"
-        );
-    }
-    if without_voice_cloning {
-        anyhow::ensure!(
-            inspection["voice_cloning_encoder_active"] == false,
-            "the supposedly reduced checkpoint has an active voice encoder; check its provenance"
-        );
-    }
+    anyhow::ensure!(
+        inspection["sha256"].as_str() == Some(expected_checkpoint_sha256(model)?),
+        "unexpected checkpoint SHA-256 for {model}; refusing incomplete or substituted model"
+    );
+    anyhow::ensure!(
+        inspection["voice_encoder_tensor_count"].as_u64() == Some(42)
+            && inspection["active_voice_encoder_tensors"].as_u64() == Some(42),
+        "full 42-tensor Mimi voice encoder is mandatory; rejecting this checkpoint"
+    );
     println!("{}", serde_json::to_string_pretty(&inspection)?);
 
     // Force an actual checkpoint tensor through Candle's native safetensors loader
@@ -218,15 +191,10 @@ fn main() -> Result<()> {
     match command.as_str() {
         "prefetch" => {
             let model = args.next().context(usage())?;
-            let mut without_voice_cloning = false;
             for arg in args {
-                if arg == "--without-voice-cloning" {
-                    without_voice_cloning = true;
-                } else {
-                    bail!("unexpected argument {arg:?}; {}", usage());
-                }
+                bail!("unsupported argument {arg:?}: encoder-disabled models are prohibited; {}", usage());
             }
-            prefetch(&model, without_voice_cloning)
+            prefetch(&model)
         }
         "inspect" => {
             let path = args.next().context(usage())?;
