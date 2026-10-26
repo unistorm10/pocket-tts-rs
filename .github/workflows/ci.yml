@@ -70,7 +70,9 @@ jobs:
           fi
 
   full-weights:
-    if: github.event_name == 'workflow_dispatch'
+    # Only trusted pushes on the development branch or explicit dispatch;
+    # never substitute public, encoder-disabled weights.
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/feat/standalone-v4-foundation')
     name: Full Kyutai voice-cloning checkpoint (gated)
     runs-on: [self-hosted, linux]
     timeout-minutes: 90
