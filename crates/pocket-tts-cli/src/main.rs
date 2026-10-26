@@ -60,6 +60,12 @@ fn main() -> Result<()> {
                     } else {
                         Voice::ReferenceAudio(path)
                     }
+                } else if ["wav", "mp3", "flac", "safetensors"]
+                    .contains(&path.extension().and_then(|e| e.to_str()).unwrap_or(""))
+                {
+                    // Keep an invalid local voice path a path: don't silently
+                    // reinterpret it as an unrecognized built-in preset.
+                    Voice::ReferenceAudio(path)
                 } else {
                     Voice::Preset(voice)
                 }

@@ -29,6 +29,16 @@ jobs:
           set -euo pipefail
           git clone --quiet --depth 1 --branch v4.0.1 https://github.com/kyutai-labs/pocket-tts.git "/tmp/pocket-tts-kyutai-${GITHUB_RUN_ID}"
           test "$(git -C "/tmp/pocket-tts-kyutai-${GITHUB_RUN_ID}" rev-parse HEAD)" = "a922b912dfa366975294afb568d815b305acde5d"
+      - name: Ensure CMake native build prerequisite
+        run: |
+          set -euo pipefail
+          if ! command -v cmake >/dev/null 2>&1; then
+            command -v sudo >/dev/null 2>&1 || { echo "::error::CMake missing and sudo unavailable"; exit 1; }
+            sudo -n apt-get update -qq
+            sudo -n DEBIAN_FRONTEND=noninteractive apt-get install -y -qq cmake
+          fi
+          cmake --version
+
       - name: Build official native Rust inference binary
         run: |
           set -euo pipefail

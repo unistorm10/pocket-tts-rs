@@ -14,8 +14,6 @@ concurrency:
 
 jobs:
   rust:
-    permissions:
-      contents: write
     name: Rust workspace (self-hosted Linux)
     runs-on: [self-hosted, linux]
     timeout-minutes: 90
@@ -39,18 +37,6 @@ jobs:
           rustc --version
           cargo fmt --version
           cargo clippy --version
-
-      - name: Refresh lockfile for new real-audio backend dependency
-        run: |
-          set -euo pipefail
-          cargo generate-lockfile
-          if ! git diff --quiet -- Cargo.lock; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add Cargo.lock
-            git commit -m "Lock dependencies for real audio synthesis API"
-            git push origin HEAD:feat/standalone-v4-foundation
-          fi
 
       - name: Verify formatting
         run: cargo fmt --all -- --check

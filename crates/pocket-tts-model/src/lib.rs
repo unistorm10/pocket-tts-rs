@@ -122,11 +122,13 @@ impl SynthesisEngine for OfficialRustCli {
         );
         let voice = request.voice.as_argument()?;
         if let Some(parent) = output.parent() {
-            anyhow::ensure!(
-                parent.is_dir(),
-                "output directory missing: {}",
-                parent.display()
-            );
+            if !parent.as_os_str().is_empty() {
+                anyhow::ensure!(
+                    parent.is_dir(),
+                    "output directory missing: {}",
+                    parent.display()
+                );
+            }
         }
         // Do not accidentally validate an old WAV if the upstream CLI fails.
         if output.exists() {
