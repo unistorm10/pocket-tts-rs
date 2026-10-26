@@ -194,7 +194,7 @@ impl Config {
         // It can never be selected by the Rust model loader.
         let mut value: serde_yaml::Value = serde_yaml::from_str(yaml)?;
         if let Some(map) = value.as_mapping_mut() {
-            map.remove(&serde_yaml::Value::String(
+            map.remove(serde_yaml::Value::String(
                 "weights_path_without_voice_cloning".to_string(),
             ));
         }
