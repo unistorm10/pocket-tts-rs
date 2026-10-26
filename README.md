@@ -10,6 +10,10 @@ The engine is completely independent of SOMA and Phonation. Phonation may integr
 
 Existing Rust engines have already implemented much of Pocket TTS. Before adding more new FlowLM/Mimi/Candle code, compare Kyutai's official v4.0.1 Rust/XN runtime and the substantial community Candle port. The [Rust implementation audit](docs/RUST_IMPLEMENTATION_AUDIT.md) records the candidate repositories, licenses, version gaps and required real-weight acceptance tests. It supersedes any older port-every-module-from-Python assumptions in the implementation plan.
 
+## Performance benchmarks
+
+The full [144-trial fresh-process benchmark](https://github.com/unistorm10/pocket-tts-rs/actions/runs/40377493188) passed against all three gated English models. The [raw metrics artifact](https://github.com/unistorm10/pocket-tts-rs/actions/runs/40377493188/artifacts/12677901806) includes streaming first-audio timing, end-to-end/model-only RTF, peak RSS, FP32/INT8 and voice-preparation costs. At 4 CPU threads FP32 with preset voice, median first audio was **376 ms (English), 139 ms (18M REFL), 104 ms (7M)**. Fresh reference audio required **1.6–1.9 seconds** before first audible PCM. A second resident-model HTTP benchmark is implemented separately to isolate warm model/voice-cache behavior. See [benchmark methods](docs/BENCHMARKING.md).
+
 ## Verified native Rust voice-cloning baseline
 
 On October 26, 2026, the self-hosted Linux runner compiled Kyutai's existing

@@ -39,3 +39,36 @@ python3 benchmarks/benchmark_tts.py \
 This produces `benchmark-results.json` and `benchmark-results.md` with all measurements, and retains **no audio files or model weights** in the benchmark outputs. Hosted CI is manual after initial baseline, with artifacts uploaded from the job for review.
 
 The next comparative suite must benchmark reused Candle against the same prompts/checkpoints, then add **resident-session TTFA** and simultaneous-stream capacity. Audio quality comparison, WER, speaker embeddings and human listening tests should be added rather than treating output amplitude as quality.
+
+## First completed full fresh-process matrix
+
+[Workflow run #40377493188](https://github.com/unistorm10/pocket-tts-rs/actions/runs/40377493188) completed **144/144 real-PCM trials without errors**, on the self-hosted `elitedesk-mini` Linux runner. [Download JSON and Markdown metrics](https://github.com/unistorm10/pocket-tts-rs/actions/runs/40377493188/artifacts/12677901806).
+
+At 4 CPU threads with FP32, the p50 streaming audible TTFA, process-inclusive RTF and observed peak RSS were:
+
+| Variant | Conditioning | TTFA (ms) | RTF | Peak RSS (MiB) |
+| --- | --- | ---: | ---: | ---: |
+| english | preset | 376 | 0.296 | 624.6 |
+| english | reference audio | 1903 | 0.479 | 897.5 |
+| english_18m_refl_2026-10 | preset | 139 | 0.093 | 239.1 |
+| english_18m_refl_2026-10 | reference audio | 1604 | 0.296 | 613.7 |
+| english_7m_2026-10 | preset | 104 | 0.083 | 203.5 |
+| english_7m_2026-10 | reference audio | 1593 | 0.278 | 572.9 |
+
+The process benchmark includes model startup and voice preparation per request. Many INT8 configurations had lower memory requirements but **worse** latency/RTF than FP32. See per-trial data for 1-thread and INT8 results.
+
+### Warm resident comparison
+
+`benchmarks/benchmark_resident.py` drives the official Rust `serve` endpoint. It measures:
+- server launch to `/health` ready (model + preset voice loaded);
+- actual HTTP TTFA for streaming PCM chunks with 44-byte WAV header excluded;
+- the first reference-audio request as **uncached**, subsequent requests as **cached**, over one persistent server process;
+- process memory, per-request RTF, throughput, utterance duration and timing distributions;
+- the same three models, two thread counts, two quantization modes, three passage lengths and two voice modes.
+
+Run it after building Kyutai v4.0.1's official `pocket-tts` binary:
+```bash
+python3 benchmarks/benchmark_resident.py --binary /path/to/pocket-tts \
+  --output resident.json --repeats 2
+```
+`resident.json` and `resident.md` retain per-trial measurements. The corresponding self-hosted Actions workflow is `benchmark-resident.yml`. Neither benchmark measures neural-quality/WER/speaker similarity or concurrent HTTP capacity; these require a separate evaluation protocol. 
