@@ -6,3 +6,7 @@ license.workspace = true
 
 [dependencies]
 anyhow = { workspace = true }
+pocket-tts-core = { path = "../crates/pocket-tts-core" }
+safetensors = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
