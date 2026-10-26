@@ -85,3 +85,5 @@ jobs:
             exit 1
           fi
           cargo run --locked -p xtask -- prefetch english
+          cargo run --locked -p xtask -- prefetch english-7m
+          cargo run --locked -p xtask -- prefetch english-18m-refl
