@@ -49,6 +49,9 @@ jobs:
           cargo build --release --locked -p pocket-tts --example candle_v4_probe --manifest-path "$UPSTREAM_CANDLE/Cargo.toml"
       - name: Attempt all three full models and preserve exact failure reasons
         run: |
+          # GitHub defaults to -e: disable it for this *diagnostic* matrix,
+          # or the first incompatible model prevents collecting the rest.
+          set +e
           set -uo pipefail
           mkdir -p "$RUNNER_TEMP/candle-real-diagnosis"
           binary="$HOME/.cache/pocket_tts_rs_candle_candidate_target/release/examples/candle_v4_probe"
