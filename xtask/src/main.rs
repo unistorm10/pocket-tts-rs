@@ -129,7 +129,10 @@ fn prefetch(model: &str, without_voice_cloning: bool) -> Result<()> {
         .sum_all()?
         .to_dtype(candle_core::DType::F32)?
         .to_scalar::<f32>()?;
-    anyhow::ensure!(sum_of_squares.is_finite(), "Candle checkpoint tensor is non-finite");
+    anyhow::ensure!(
+        sum_of_squares.is_finite(),
+        "Candle checkpoint tensor is non-finite"
+    );
     println!(
         "Candle real-weight probe: tensor={:?} elements={} sum_of_squares={}",
         first.0, first.1, sum_of_squares

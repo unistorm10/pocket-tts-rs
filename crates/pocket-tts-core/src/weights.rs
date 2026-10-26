@@ -19,7 +19,10 @@ impl ModelWeights {
         let data = std::fs::read(path)
             .with_context(|| format!("reading model weights {}", path.display()))?;
         let tensors = SafeTensors::deserialize(&data).context("invalid safetensors checkpoint")?;
-        anyhow::ensure!(!tensors.names().is_empty(), "checkpoint has no named tensors");
+        anyhow::ensure!(
+            !tensors.names().is_empty(),
+            "checkpoint has no named tensors"
+        );
         Ok(Self { data })
     }
 
@@ -30,7 +33,11 @@ impl ModelWeights {
     }
 
     /// Produce a native Candle weight source; the checkpoint stays owned by this object.
-    pub fn var_builder<'a>(&'a self, dtype: DType, device: &Device) -> candle_core::Result<VarBuilder<'a>> {
+    pub fn var_builder<'a>(
+        &'a self,
+        dtype: DType,
+        device: &Device,
+    ) -> candle_core::Result<VarBuilder<'a>> {
         VarBuilder::from_slice_safetensors(&self.data, dtype, device)
     }
 

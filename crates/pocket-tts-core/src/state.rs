@@ -31,18 +31,20 @@ mod tests {
         let mut state = ModelState::new();
         let a = Tensor::zeros(2, DType::F32, &Device::Cpu).unwrap();
         let b = Tensor::ones(3, DType::F32, &Device::Cpu).unwrap();
-        state.insert("encoder.layers.0".into(), HashMap::from([("previous".into(), a)]));
-        state.insert("decoder.layers.0".into(), HashMap::from([("partial".into(), b)]));
+        state.insert(
+            "encoder.layers.0".into(),
+            HashMap::from([("previous".into(), a)]),
+        );
+        state.insert(
+            "decoder.layers.0".into(),
+            HashMap::from([("partial".into(), b)]),
+        );
         assert_eq!(
-            module_state(&mut state, "encoder.layers.0")
-                .unwrap()["previous"]
-                .elem_count(),
+            module_state(&mut state, "encoder.layers.0").unwrap()["previous"].elem_count(),
             2
         );
         assert_eq!(
-            module_state(&mut state, "decoder.layers.0")
-                .unwrap()["partial"]
-                .elem_count(),
+            module_state(&mut state, "decoder.layers.0").unwrap()["partial"].elem_count(),
             3
         );
         assert!(module_state(&mut state, "missing.layers.0").is_err());

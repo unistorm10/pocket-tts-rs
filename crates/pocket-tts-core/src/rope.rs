@@ -56,10 +56,7 @@ pub fn apply_rope(
     let shape = (1, time, 1, half);
     let cos = Tensor::from_vec(cosine, shape, queries.device())?;
     let sin = Tensor::from_vec(sine, shape, queries.device())?;
-    Ok((
-        rotate(queries, &cos, &sin)?,
-        rotate(keys, &cos, &sin)?,
-    ))
+    Ok((rotate(queries, &cos, &sin)?, rotate(keys, &cos, &sin)?))
 }
 
 #[cfg(test)]
@@ -79,8 +76,14 @@ mod tests {
             .reshape((1, 1, 2, 4))
             .unwrap();
         let (qo, ko) = apply_rope(&q, &k, 0, 10_000.0).unwrap();
-        assert_eq!(qo.flatten_all().unwrap().to_vec1::<f32>().unwrap(), vec![1., 2., 3., 4.]);
-        assert_eq!(ko.flatten_all().unwrap().to_vec1::<f32>().unwrap(), vec![1., 2., 3., 4., 5., 6., 7., 8.]);
+        assert_eq!(
+            qo.flatten_all().unwrap().to_vec1::<f32>().unwrap(),
+            vec![1., 2., 3., 4.]
+        );
+        assert_eq!(
+            ko.flatten_all().unwrap().to_vec1::<f32>().unwrap(),
+            vec![1., 2., 3., 4., 5., 6., 7., 8.]
+        );
     }
 
     #[test]
@@ -93,7 +96,13 @@ mod tests {
         let (whole, _) = apply_rope(&q, &q, 0, 10_000.0).unwrap();
         let chunk = q.narrow(1, 1, 1).unwrap();
         let (partial, _) = apply_rope(&chunk, &chunk, 1, 10_000.0).unwrap();
-        let expected = whole.narrow(1, 1, 1).unwrap().flatten_all().unwrap().to_vec1::<f32>().unwrap();
+        let expected = whole
+            .narrow(1, 1, 1)
+            .unwrap()
+            .flatten_all()
+            .unwrap()
+            .to_vec1::<f32>()
+            .unwrap();
         let actual = partial.flatten_all().unwrap().to_vec1::<f32>().unwrap();
         assert_eq!(expected.len(), actual.len());
         for (expected, actual) in expected.iter().zip(actual.iter()) {
