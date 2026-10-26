@@ -38,3 +38,15 @@ The official native CLI runs on CPU. Future Candle/XN feature support is
 separate; no GPU capability is asserted for this adapter.
 
 See `docs/REUSE_FIRST_PLAN.md` for next deliverables.
+
+## Actual runner acceptance result (October 26, 2026)
+
+[Workflow run #40368083804](https://github.com/unistorm10/pocket-tts-rs/actions/runs/40368083804) succeeded on the user-owned self-hosted Linux runner:
+- Kyutai v4.0.1 native Rust release executable compiled from pinned source (after providing checksum-verified, user-space CMake 3.30.9).
+- Reference-audio cloning was exercised with Kyutai's published Alba sample, **not** a pretrained voice-state shortcut.
+- The full gated English model was used with an active encoder. Generated 75,840 mono PCM samples at 24,000 Hz, 3.16 seconds, peak 0.670105, RMS 0.118723.
+- Kyutai logged 2,960 milliseconds of generated speech in 808 ms inference, a 3.66x real-time factor. The final WAV also includes boundary/padding audio, hence its 3.16 s duration.
+- Independent Python `wave` validation confirmed mono, 24 kHz, duration and nonzero PCM.
+- The model, reference audio and synthesized WAV were not checked into Git or uploaded as build artifacts.
+
+The GitHub workflow is manual-only. To trigger it, open **Actions → Pocket TTS official Rust inference baseline → Run workflow** on branch `feat/standalone-v4-foundation`. GitHub repository secret `HF_TOKEN` is required for authorized full-model access.

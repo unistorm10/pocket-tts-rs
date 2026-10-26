@@ -56,6 +56,6 @@ Capability discovery should indicate language(s), voice cloning, live streaming,
 
 ## Current status (2026-10-26)
 
-The workspace is Phase 0 scaffolding. The v4.0.1 configuration schema and regression fixtures are being added first. Neural inference, streaming, CLI commands and server endpoints are not implemented; do not describe the project as functional TTS until real synthesis tests pass.
+The v4.0.1 configuration, checkpoint verification and backend-neutral model API are implemented. The official Kyutai Rust/XN engine is integrated as an **external native executable backend** for generation: real reference-voice cloning and WAV generation passed CI in [run #40368083804](https://github.com/unistorm10/pocket-tts-rs/actions/runs/40368083804). **In-process Candle synthesis, production streaming API, model reuse without subprocess launch and the HTTP server are not yet implemented.** Native neural runtime code must be reused/adapted from existing audited engines, not recreated without justification. See `docs/RUST_IMPLEMENTATION_AUDIT.md` and `docs/REUSE_FIRST_PLAN.md`.
 
 See `.github/prompts/plan-implementation-pocket-tts.md` for implementation phases.

@@ -2,7 +2,7 @@
 
 Standalone Rust-native port of [Kyutai Pocket TTS](https://github.com/kyutai-labs/pocket-tts), targeting Candle inference and a reusable library, CLI and optional HTTP server.
 
-**Status:** Phase 0 foundation. Current model inference is not implemented. CLI/server are placeholders and do not synthesize speech.
+**Status:** **Real voice-cloned 24-kHz speech was generated and verified** through the standalone CLI using Kyutai's pinned native Rust/XN inference engine. The in-process Candle inference backend and production HTTP service are **not yet implemented**. This is an actual, working reference-backend milestone, not completed end-to-end platform parity.
 
 The engine is completely independent of SOMA and Phonation. Phonation may integrate it as one of multiple backends via its own interface, but this repository must remain usable without Phonation.
 
@@ -10,13 +10,33 @@ The engine is completely independent of SOMA and Phonation. Phonation may integr
 
 Existing Rust engines have already implemented much of Pocket TTS. Before adding more new FlowLM/Mimi/Candle code, compare Kyutai's official v4.0.1 Rust/XN runtime and the substantial community Candle port. The [Rust implementation audit](docs/RUST_IMPLEMENTATION_AUDIT.md) records the candidate repositories, licenses, version gaps and required real-weight acceptance tests. It supersedes any older port-every-module-from-Python assumptions in the implementation plan.
 
+## Verified native Rust voice-cloning baseline
+
+On October 26, 2026, the self-hosted Linux runner compiled Kyutai's existing
+`v4.0.1` native Rust engine, used a published Kyutai reference-audio WAV
+with the full (encoder-enabled) `kyutai/pocket-tts` English checkpoint,
+and generated **3.16 s of real 24-kHz mono speech (75,840 samples)**.
+Our Rust CLI validated signal amplitude (peak 0.670105, RMS 0.118723);
+an independent WAV parser confirmed the result. Kyutai reported generation
+at **3.66× real-time**, excluding some setup overhead.
+[CI evidence](https://github.com/unistorm10/pocket-tts-rs/actions/runs/40368083804).
+The model files and generated audio are not committed to Git.
+
+This is a **process-backed reference implementation**, not yet a native
+in-process reusable Candle inference backend and not a final streaming library.
+The expensive gated reference-synthesis CI is manually triggered; ordinary CI
+remains automatic.
+
+See [reference inference usage](docs/REFERENCE_INFERENCE.md) and
+[reuse-first implementation stages](docs/REUSE_FIRST_PLAN.md).
+
 ## Workspace
 
 - `pocket-tts-core`: configuration and download/cache utilities; current upstream config fixtures
 - `pocket-tts-flow`: planned FlowLM implementation
 - `pocket-tts-mimi`: planned Mimi codec
-- `pocket-tts-model`: planned native public synthesis library
-- `pocket-tts-cli`: planned standalone executable
+- `pocket-tts-model`: backend-neutral Rust synthesis API, real WAV inspection and operational official Rust CLI adapter; Candle adapter still to be implemented
+- `pocket-tts-cli`: operational `generate`/ `inspect` through a pinned existing native Rust reference executable; requires that binary
 - `pocket-tts-server`: planned optional Axum server
 - `xtask`: official-checkpoint fetching, safetensors inspection and Candle weight probes
 - `pocket-tts-training`: standalone training recipe validation and explicit upstream PyTorch/CUDA launcher

@@ -11,14 +11,14 @@ This plan supersedes the prior port-every-layer-from-Python phases in
 - No fake audio, mocked model execution, or claims from checkpoint probes.
 - Never commit weights, tokens or reference audio. Use pinned full model checkpoints already cached.
 
-## Milestone A: real voice-cloned audio baseline (under construction)
+## Milestone A: real voice-cloned audio baseline (validated 2026-10-26)
 1. Checkout Kyutai v4.0.1 at pinned commit `a922b912dfa366975294afb568d815b305acde5d`.
 2. Build official `rust/` Rust inference binary on our self-hosted Linux runner.
 3. Exercise a **reference-audio** voice-cloning path with Kyutai's published example WAV.
 4. Validate actual WAV with sample rate 24 kHz, non-silence, positive duration, plus RMS/peak.
 5. Expose a minimal standalone `pocket-tts-model::SynthesisEngine` interface and `pocket-tts-cli generate` through `OfficialRustCli` (explicit reference backend, process based).
 6. Verify Cargo tests, Clippy, lockfile, CI; keep the proof link.
-**Gate:** Job produced actual WAV and completed all assertions, not simply compiled. This process-backed bridge is *not* the final streaming/embedded engine.
+**Gate passed:** [Run #40368083804](https://github.com/unistorm10/pocket-tts-rs/actions/runs/40368083804) produced real 24 kHz cloned speech with an external reference-audio sample and verified non-silent PCM. This process-backed bridge is *not* the final streaming/embedded engine.
 
 ## Milestone B: reuse the existing Candle implementation
 1. Pin a reviewed `stepupgaming/pocket-tts` commit and save license notices.
