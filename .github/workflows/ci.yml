@@ -1,0 +1,48 @@
+name: Pocket TTS Rust CI
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pocket-tts-rs-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust:
+    name: Rust workspace (self-hosted Linux)
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Inspect runner and Rust toolchain
+        run: |
+          set -euo pipefail
+          uname -a
+          command -v cargo || {
+            echo "::error::Rust/Cargo is not installed on this self-hosted runner."
+            exit 1
+          }
+          cargo --version
+          rustc --version
+          cargo fmt --version
+          cargo clippy --version
+
+      - name: Verify formatting
+        run: cargo fmt --all -- --check
+
+      - name: Run workspace tests
+        run: cargo test --workspace --all-targets --locked
+
+      - name: Run Clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
