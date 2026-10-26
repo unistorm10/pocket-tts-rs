@@ -1,0 +1,49 @@
+name: Audit and build pinned community Candle backend
+
+on:
+  push:
+    branches: [feat/standalone-v4-foundation]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pocket-candle-candidate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  candle-candidate:
+    name: Candle reuse candidate (self-hosted Linux)
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check official model config compatibility
+        run: |
+          set -euo pipefail
+          cargo test --locked -p pocket-tts-core candle_compat -- --nocapture
+      - name: Checkout exactly pinned third-party Candle implementation
+        run: |
+          set -euo pipefail
+          source="/tmp/pocket-tts-candle-${GITHUB_RUN_ID}"
+          git clone --quiet https://github.com/stepupgaming/pocket-tts.git "$source"
+          git -C "$source" checkout --quiet dbf78c816cd83c89f11dbeb9d87290ad0a3dccd0
+          test "$(git -C "$source" rev-parse HEAD)" = "dbf78c816cd83c89f11dbeb9d87290ad0a3dccd0"
+          test -f "$source/LICENSE"
+          echo "CANDLE_CANDIDATE_DIR=$source" >> "$GITHUB_ENV"
+      - name: Build existing Candle neural model as a separate reusable Rust crate
+        run: |
+          set -euo pipefail
+          cd "$CANDLE_CANDIDATE_DIR"
+          cargo check --locked -p pocket-tts
+      - name: Inspect candidate API and checkpoint signatures
+        run: |
+          set -euo pipefail
+          grep -n 'pub struct TTSModel' "$CANDLE_CANDIDATE_DIR/crates/pocket-tts/src/tts_model.rs"
+          grep -n 'pub fn generate(' "$CANDLE_CANDIDATE_DIR/crates/pocket-tts/src/tts_model.rs"
+          grep -n 'pub fn get_voice_state' "$CANDLE_CANDIDATE_DIR/crates/pocket-tts/src/tts_model.rs"
+          grep -n 'pub fn generate_stream_long' "$CANDLE_CANDIDATE_DIR/crates/pocket-tts/src/tts_model.rs"

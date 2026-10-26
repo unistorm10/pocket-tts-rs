@@ -5,6 +5,7 @@
 //! `pocket_tts/utils/utils.py::download_if_necessary`). Later phases add
 //! streaming state, RoPE, streaming convolutions, and attention.
 
+pub mod candle_compat;
 pub mod config;
 pub mod download;
 
