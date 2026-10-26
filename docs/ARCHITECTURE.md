@@ -33,6 +33,7 @@ This allows direct embedded use without HTTP, and standalone CLI/server use with
 - **pocket-tts-model**: ergonomic public library API, loading lifecycle, voice-state import/export, streaming session API and clear errors.
 - **pocket-tts-cli**: standalone executable backed by the same library.
 - **pocket-tts-server**: optional HTTP interface backed by the same library.
+- **pocket-tts-training**: separate local training workflow, using the pinned upstream PyTorch/CUDA trainer today; no runtime dependency on this crate.
 - **Phonation**: backend discovery/selection, voice registry integration, request/response mapping, scheduling and orchestration.
 
 ## Public API design target (NOT YET IMPLEMENTED)
@@ -48,8 +49,10 @@ Capability discovery should indicate language(s), voice cloning, live streaming,
 3. Load real, revision-pinned weights and verify integrity; operate without network once cached.
 4. Demonstrate correct, non-silent, real-weight audio with golden PyTorch comparison, plus explicit WER/audio benchmarks where meaningful.
 5. Streaming and one-shot generation agree on content/timing within documented tolerances.
-6. Keep model licenses and weight redistribution restrictions distinct from this repository's MIT source license.
-7. Confirm a shared compatible Candle version against Phonation when embedded integration is implemented. Do not depend on Phonation to compile/test this repository.
+6. For full voice-cloning checkpoints require active encoder tensors; do not silently substitute the encoder-disabled public variant. Voice cloning must pass real reference-audio tests.
+7. Keep inference independent of optional training backends. Check exported `model.safetensors` before deploying a trained model.
+8. Keep model licenses and weight redistribution restrictions distinct from this repository's MIT source license.
+9. Confirm a shared compatible Candle version against Phonation when embedded integration is implemented. Do not depend on Phonation to compile/test this repository.
 
 ## Current status (2026-10-26)
 

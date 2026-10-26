@@ -58,6 +58,8 @@ fn inspect_weights(path: &Path, repo_ref: Option<&str>) -> Result<serde_json::Va
     let mut parameters = 0_u64;
     let mut tensors = 0_u64;
     let mut nonzero_bytes = 0_u64;
+    let mut encoder_tensor_count = 0_u64;
+    let mut nonzero_encoder_tensors = 0_u64;
     for name in names {
         let tensor = safe.tensor(name)?;
         let elements = tensor.shape().iter().try_fold(1_u64, |acc, dim| {
@@ -68,6 +70,12 @@ fn inspect_weights(path: &Path, repo_ref: Option<&str>) -> Result<serde_json::Va
             .checked_add(elements)
             .context("parameter count overflow")?;
         nonzero_bytes += tensor.data().len() as u64;
+        if name.starts_with("mimi.encoder") {
+            encoder_tensor_count += 1;
+            if tensor.data().iter().any(|byte| *byte != 0) {
+                nonzero_encoder_tensors += 1;
+            }
+        }
         tensors += 1;
     }
     anyhow::ensure!(nonzero_bytes > 0, "checkpoint has no tensor payload data");
@@ -80,6 +88,9 @@ fn inspect_weights(path: &Path, repo_ref: Option<&str>) -> Result<serde_json::Va
         "tensor_count": tensors,
         "parameter_count": parameters,
         "tensor_data_bytes": nonzero_bytes,
+        "voice_encoder_tensor_count": encoder_tensor_count,
+        "active_voice_encoder_tensors": nonzero_encoder_tensors,
+        "voice_cloning_encoder_active": encoder_tensor_count > 0 && nonzero_encoder_tensors > 0,
         "validated": true
     }))
 }
@@ -101,6 +112,12 @@ fn prefetch(model: &str, without_voice_cloning: bool) -> Result<()> {
     let checkpoint = download_if_necessary(weights_ref)
         .with_context(|| format!("downloading pinned checkpoint for {model}"))?;
     let inspection = inspect_weights(&checkpoint, Some(weights_ref))?;
+    if !without_voice_cloning {
+        anyhow::ensure!(
+            inspection["voice_cloning_encoder_active"] == true,
+            "requested the full voice-cloning checkpoint, but the model has no active mimi.encoder tensors; refusing a reduced checkpoint"
+        );
+    }
     println!("{}", serde_json::to_string_pretty(&inspection)?);
 
     // Force an actual checkpoint tensor through Candle's native safetensors loader

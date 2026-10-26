@@ -52,3 +52,19 @@ jobs:
 
       - name: Download and inspect current default English checkpoint
         run: cargo run --locked -p xtask -- prefetch english --without-voice-cloning
+
+  full-weights:
+    name: Full Kyutai voice-cloning checkpoint (gated)
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Authorized full English checkpoint
+        run: |
+          set -euo pipefail
+          cargo run --locked -p xtask -- prefetch english

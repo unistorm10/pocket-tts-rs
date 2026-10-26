@@ -1,0 +1,14 @@
+[package]
+name = "pocket-tts-training"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Standalone reproducible training launcher for Kyutai Pocket TTS recipes"
+
+[dependencies]
+anyhow.workspace = true
+serde_yaml.workspace = true
+
+[[bin]]
+name = "pocket-tts-train"
+path = "src/main.rs"

@@ -14,7 +14,18 @@ The engine is completely independent of SOMA and Phonation. Phonation may integr
 - `pocket-tts-model`: planned native public synthesis library
 - `pocket-tts-cli`: planned standalone executable
 - `pocket-tts-server`: planned optional Axum server
-- `xtask`: planned golden-reference fixture and developer tooling
+- `xtask`: official-checkpoint fetching, safetensors inspection and Candle weight probes
+- `pocket-tts-training`: standalone training recipe validation and explicit upstream PyTorch/CUDA launcher
+
+## Official checkpoint policy
+
+The primary model source is [kyutai/pocket-tts](https://huggingface.co/kyutai/pocket-tts), with **voice cloning required**. Access to the full checkpoint is gated by Kyutai's model terms and may require an authorized Hugging Face login/token. The library must not silently fall back to the reduced encoder-disabled checkpoint.
+
+The `kyutai/pocket-tts-without-voice-cloning` checkpoints are deliberately reduced and permitted **only** for public CI and non-cloning comparisons. `xtask prefetch english` targets the full gated checkpoint; `--without-voice-cloning` must be explicit.
+
+## Standalone training
+
+The `pocket-tts-training` crate provides a training launcher for the **pinned official PyTorch/CUDA trainer**, independent of Phonation. See [Training](docs/TRAINING.md). End-to-end training and native Candle backpropagation are not yet implemented in this repository.
 
 ## Phase 0 tests
 

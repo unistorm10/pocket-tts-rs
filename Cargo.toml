@@ -8,6 +8,7 @@ members = [
     "crates/pocket-tts-cli",
     "crates/pocket-tts-server",
     "xtask",
+    "crates/pocket-tts-training",
 ]
 
 [workspace.package]
