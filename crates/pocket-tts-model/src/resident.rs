@@ -64,12 +64,25 @@ pub struct ResidentRustServer {
 impl ResidentRustServer {
     pub fn start(binary: impl AsRef<Path>, opts: ResidentOptions) -> Result<Self> {
         let binary = binary.as_ref();
-        anyhow::ensure!(binary.is_file(), "native TTS executable missing: {}", binary.display());
+        anyhow::ensure!(
+            binary.is_file(),
+            "native TTS executable missing: {}",
+            binary.display()
+        );
         anyhow::ensure!(!opts.language.trim().is_empty(), "language cannot be empty");
-        anyhow::ensure!(!opts.default_voice.trim().is_empty(), "default voice cannot be empty");
+        anyhow::ensure!(
+            !opts.default_voice.trim().is_empty(),
+            "default voice cannot be empty"
+        );
         anyhow::ensure!(opts.threads > 0, "CPU threads must be positive");
-        anyhow::ensure!(!opts.startup_timeout.is_zero(), "startup timeout must be positive");
-        anyhow::ensure!(!opts.request_timeout.is_zero(), "request timeout must be positive");
+        anyhow::ensure!(
+            !opts.startup_timeout.is_zero(),
+            "startup timeout must be positive"
+        );
+        anyhow::ensure!(
+            !opts.request_timeout.is_zero(),
+            "request timeout must be positive"
+        );
 
         let socket = TcpListener::bind(("127.0.0.1", 0)).context("finding local TTS port")?;
         let port = socket.local_addr()?.port();
@@ -108,11 +121,16 @@ impl ResidentRustServer {
         let url = format!("http://127.0.0.1:{port}");
         let start = Instant::now();
         loop {
-            if let Some(status) = child.try_wait().context("reading native server exit status")? {
+            if let Some(status) = child
+                .try_wait()
+                .context("reading native server exit status")?
+            {
                 bail!("native Rust inference server exited during startup: {status}");
             }
-            if let Ok(response) = client.get(format!("{url}/health"))
-                .timeout(Duration::from_millis(400)).send()
+            if let Ok(response) = client
+                .get(format!("{url}/health"))
+                .timeout(Duration::from_millis(400))
+                .send()
             {
                 if response.status().is_success() {
                     break;
@@ -121,7 +139,10 @@ impl ResidentRustServer {
             if start.elapsed() >= opts.startup_timeout {
                 let _ = child.kill();
                 let _ = child.wait();
-                bail!("native Rust server not ready after {:?}", opts.startup_timeout);
+                bail!(
+                    "native Rust server not ready after {:?}",
+                    opts.startup_timeout
+                );
             }
             thread::sleep(Duration::from_millis(50));
         }
@@ -163,17 +184,28 @@ impl ResidentRustServer {
         );
         let post = self.client.post(format!("{}/tts", self.url));
         let post = match &request.voice {
-            Voice::Preset(name) => post.form(&[("text", request.text.as_str()), ("voice_url", name.as_str())]),
-            Voice::HubAudio(url) => post.form(&[("text", request.text.as_str()), ("voice_url", url.as_str())]),
+            Voice::Preset(name) => post.form(&[
+                ("text", request.text.as_str()),
+                ("voice_url", name.as_str()),
+            ]),
+            Voice::HubAudio(url) => {
+                post.form(&[("text", request.text.as_str()), ("voice_url", url.as_str())])
+            }
             Voice::ReferenceAudio(path) | Voice::State(path) => {
-                let filename = path.file_name().and_then(|v| v.to_str())
+                let filename = path
+                    .file_name()
+                    .and_then(|v| v.to_str())
                     .context("local voice file does not have UTF-8 filename")?;
                 let data = std::fs::read(path)
                     .with_context(|| format!("reading voice input {}", path.display()))?;
-                let part = multipart::Part::bytes(data).file_name(filename.to_string())
+                let part = multipart::Part::bytes(data)
+                    .file_name(filename.to_string())
                     .mime_str("application/octet-stream")?;
-                post.multipart(multipart::Form::new()
-                    .text("text", request.text.clone()).part("voice_wav", part))
+                post.multipart(
+                    multipart::Form::new()
+                        .text("text", request.text.clone())
+                        .part("voice_wav", part),
+                )
             }
         };
         let start = Instant::now();
@@ -182,17 +214,28 @@ impl ResidentRustServer {
         if !response.status().is_success() {
             let status = response.status();
             let text = response.text().unwrap_or_default();
-            bail!("resident voice synthesis failed: {status}: {}", text.chars().take(300).collect::<String>());
+            bail!(
+                "resident voice synthesis failed: {status}: {}",
+                text.chars().take(300).collect::<String>()
+            );
         }
-        let content_type = response.headers().get(reqwest::header::CONTENT_TYPE)
-            .and_then(|v| v.to_str().ok()).unwrap_or("");
-        anyhow::ensure!(content_type.contains("audio/wav"), "unexpected audio response content-type");
+        let content_type = response
+            .headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("");
+        anyhow::ensure!(
+            content_type.contains("audio/wav"),
+            "unexpected audio response content-type"
+        );
         let mut buf = [0_u8; 64 * 1024];
         let mut prefix = Vec::with_capacity(44);
         let mut total_bytes = 0_u64;
         let mut first_pcm = None;
         loop {
-            let count = response.read(&mut buf).context("reading streaming WAV response")?;
+            let count = response
+                .read(&mut buf)
+                .context("reading streaming WAV response")?;
             if count == 0 {
                 break;
             }
@@ -207,11 +250,16 @@ impl ResidentRustServer {
             on_bytes(&buf[..count])?;
         }
         anyhow::ensure!(
-            prefix.len() == 44 && &prefix[0..4] == b"RIFF" &&
-            &prefix[8..12] == b"WAVE" && &prefix[36..40] == b"data",
+            prefix.len() == 44
+                && &prefix[0..4] == b"RIFF"
+                && &prefix[8..12] == b"WAVE"
+                && &prefix[36..40] == b"data",
             "resident inference did not return valid streaming PCM WAV"
         );
-        anyhow::ensure!(first_pcm.is_some(), "resident TTS returned WAV header without audio");
+        anyhow::ensure!(
+            first_pcm.is_some(),
+            "resident TTS returned WAV header without audio"
+        );
         Ok(StreamTiming {
             headers,
             first_pcm: first_pcm.context("missing first PCM")?,

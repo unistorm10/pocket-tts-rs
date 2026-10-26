@@ -81,14 +81,22 @@ fn parse_voice(voice: String) -> Voice {
 }
 
 fn request(text: String, language: String, voice: String, quantize: bool) -> SynthesisRequest {
-    SynthesisRequest { text, language, voice: parse_voice(voice), quantize }
+    SynthesisRequest {
+        text,
+        language,
+        voice: parse_voice(voice),
+        quantize,
+    }
 }
 
 fn repeated_output(path: &Path, repetition: usize, repeats: usize) -> PathBuf {
     if repeats == 1 {
         return path.to_path_buf();
     }
-    let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("tts_output");
+    let stem = path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("tts_output");
     path.with_file_name(format!("{stem}-{}.wav", repetition + 1))
 }
 
@@ -99,31 +107,63 @@ fn main() -> Result<()> {
             let audio = inspect_wav(&path)?;
             println!(
                 "file={} rate={} samples={} duration={:.3}s peak={:.6} rms={:.6}",
-                audio.path.display(), audio.sample_rate, audio.samples,
-                audio.duration_seconds(), audio.peak, audio.rms
+                audio.path.display(),
+                audio.sample_rate,
+                audio.samples,
+                audio.duration_seconds(),
+                audio.peak,
+                audio.rms
             );
         }
-        Commands::Generate { reference_bin, text, language, voice, output, quantize } => {
+        Commands::Generate {
+            reference_bin,
+            text,
+            language,
+            voice,
+            output,
+            quantize,
+        } => {
             let engine = OfficialRustCli::new(reference_bin)?;
-            let audio = engine.synthesize_wav(&request(text,language,voice,quantize), &output)
+            let audio = engine
+                .synthesize_wav(&request(text, language, voice, quantize), &output)
                 .context("native reference generation failed")?;
             println!(
                 "generated={} sample_rate={} samples={} duration_s={:.3} peak={:.6} rms={:.6}",
-                audio.path.display(), audio.sample_rate, audio.samples,
-                audio.duration_seconds(), audio.peak, audio.rms
+                audio.path.display(),
+                audio.sample_rate,
+                audio.samples,
+                audio.duration_seconds(),
+                audio.peak,
+                audio.rms
             );
         }
         Commands::GenerateResident {
-            reference_bin, text, language, voice, output, repeat, threads, quantize
+            reference_bin,
+            text,
+            language,
+            voice,
+            output,
+            repeat,
+            threads,
+            quantize,
         } => {
             anyhow::ensure!(repeat > 0 && repeat <= 100, "repeat must be 1..=100");
             let req = request(text, language.clone(), voice, quantize);
             req.validate()?;
             let startup = Instant::now();
-            let engine = ResidentRustServer::start(reference_bin, ResidentOptions {
-                language, quantize, threads, ..ResidentOptions::default()
-            })?;
-            println!("resident_model_startup_ms={:.1}", startup.elapsed().as_secs_f64()*1000.0);
+            let engine = ResidentRustServer::start(
+                reference_bin,
+                ResidentOptions {
+                    language,
+                    quantize,
+                    threads,
+                    ..ResidentOptions::default()
+                },
+            )?;
+            println!(
+                "resident_model_startup_ms={:.1}",
+                startup.elapsed().as_secs_f64() * 1000.0
+            );
             for rep in 0..repeat {
                 let file_path = repeated_output(&output, rep, repeat);
                 let mut file = File::create(&file_path)
