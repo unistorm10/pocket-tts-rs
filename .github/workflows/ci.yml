@@ -38,6 +38,18 @@ jobs:
           cargo fmt --version
           cargo clippy --version
 
+      - name: Format new Rust modules on trusted branch
+        if: github.ref == 'refs/heads/feat/standalone-v4-foundation'
+        run: |
+          cargo fmt --all
+          if ! git diff --quiet -- crates xtask; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add crates xtask
+            git commit -m "Format Pocket TTS core source"
+            git push origin HEAD:feat/standalone-v4-foundation
+          fi
+
       - name: Verify formatting
         run: cargo fmt --all -- --check
 
