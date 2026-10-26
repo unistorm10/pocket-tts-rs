@@ -57,7 +57,6 @@ mimi:
     assert!(Config::from_yaml_str(yaml).is_err());
 }
 
-
 /// Current upstream model configuration must deserialize without schema drift.
 /// Fixture copied from kyutai-labs/pocket-tts tag v4.0.1.
 #[test]
@@ -67,10 +66,16 @@ fn config_parses_current_english() {
     assert_eq!(config.default_temperature, 0.3);
     assert_eq!(config.default_eos_threshold, -4.0);
     assert!(config.capitalize_first_letter);
-    assert_eq!(config.replace_characters.get("’").map(String::as_str), Some("'"));
+    assert_eq!(
+        config.replace_characters.get("’").map(String::as_str),
+        Some("'")
+    );
     assert_eq!(config.flow_lm.lookup_table.tokenizer, "tokenizers");
     assert_eq!(config.flow_lm.transformer.attn_dim, None);
-    assert_eq!(config.mimi.decoder_seanet.as_ref().map(|x| x.dimension), None);
+    assert_eq!(
+        config.mimi.decoder_seanet.as_ref().map(|x| x.dimension),
+        None
+    );
 }
 
 #[test]
@@ -83,7 +88,10 @@ fn config_parses_compact_7m_with_asymmetric_decoder_and_gqa() {
     assert_eq!(config.flow_lm.transformer.num_kv_heads, Some(2));
     assert_eq!(config.flow_lm.lookup_table.rank, Some(64));
     assert_eq!(config.mimi.decoder_seanet.as_ref().unwrap().dimension, 128);
-    assert_eq!(config.mimi.decoder_transformer.as_ref().unwrap().num_layers, 12);
+    assert_eq!(
+        config.mimi.decoder_transformer.as_ref().unwrap().num_layers,
+        12
+    );
     assert_eq!(config.default_eos_threshold, -1.0);
 }
 
