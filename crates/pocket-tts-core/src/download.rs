@@ -66,7 +66,16 @@ fn download_hf(path: &str) -> Result<PathBuf> {
     };
 
     let rev = revision.as_deref().unwrap_or("main");
-    let api = hf_hub::api::sync::Api::new()?;
+    // hf-hub 0.3 reads cached tokens by default, but does not automatically
+    // consume HF_TOKEN from CI. Pass that environment token explicitly for
+    // access-controlled voice-cloning weights; never print or persist it.
+    let mut builder = hf_hub::api::sync::ApiBuilder::new();
+    if let Ok(token) = std::env::var("HF_TOKEN") {
+        if !token.trim().is_empty() {
+            builder = builder.with_token(Some(token));
+        }
+    }
+    let api = builder.build()?;
     let repo = match &revision {
         Some(rev) => api.repo(hf_hub::Repo::with_revision(
             repo_id.clone(),
