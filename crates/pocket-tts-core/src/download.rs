@@ -65,17 +65,30 @@ fn download_hf(path: &str) -> Result<PathBuf> {
         None => (parts[2].to_string(), None),
     };
 
+    let rev = revision.as_deref().unwrap_or("main");
     let api = hf_hub::api::sync::Api::new()?;
-    let repo = match revision {
+    let repo = match &revision {
         Some(rev) => api.repo(hf_hub::Repo::with_revision(
-            repo_id,
+            repo_id.clone(),
             hf_hub::RepoType::Model,
-            rev,
+            rev.clone(),
         )),
-        None => api.repo(hf_hub::Repo::new(repo_id, hf_hub::RepoType::Model)),
+        None => api.repo(hf_hub::Repo::new(repo_id.clone(), hf_hub::RepoType::Model)),
     };
-    let local_path = repo.get(&filename)?;
-    Ok(local_path)
+
+    match repo.get(&filename) {
+        Ok(local_path) => Ok(local_path),
+        Err(primary) if filename.ends_with(".json") => {
+            // The older hf-hub client can fail to follow Hugging Face's relative
+            // resolve-cache redirects for small Git-tracked JSON files.
+            // The /raw/ endpoint serves these directly, with the same pinned revision.
+            let url = format!("https://huggingface.co/{repo_id}/raw/{rev}/{filename}");
+            download_http(&url).with_context(|| {
+                format!("HF Hub JSON resolution failed ({primary}); raw fallback also failed")
+            })
+        }
+        Err(primary) => Err(primary.into()),
+    }
 }
 
 // Minimal hex encoding to avoid pulling in another dependency just for this.
