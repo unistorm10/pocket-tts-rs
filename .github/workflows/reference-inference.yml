@@ -1,0 +1,75 @@
+name: Pocket TTS official Rust inference baseline
+
+on:
+  push:
+    branches: [feat/standalone-v4-foundation]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pocket-tts-reference-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  reference:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      RAYON_NUM_THREADS: "4"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout pinned Kyutai reference
+        uses: actions/checkout@v4
+        with:
+          repository: kyutai-labs/pocket-tts
+          ref: a922b912dfa366975294afb568d815b305acde5d
+          path: upstream/kyutai-pocket-tts
+      - name: Build official native Rust inference binary
+        run: |
+          set -euo pipefail
+          cargo build --release --locked --manifest-path upstream/kyutai-pocket-tts/rust/Cargo.toml
+      - name: Generate and validate real cloned-voice audio
+        run: |
+          set -euo pipefail
+          test -n "${HF_TOKEN:-}" || { echo "::error::HF_TOKEN missing"; exit 1; }
+          export POCKET_TTS_REFERENCE_BIN="$PWD/upstream/kyutai-pocket-tts/rust/target/release/pocket-tts"
+          test -x "$POCKET_TTS_REFERENCE_BIN"
+          cargo run --release --locked -p pocket-tts-cli -- generate \
+            --text "This is the first verified Rust voice cloning test." \
+            --voice "hf://kyutai/tts-voices/alba-mackenna/casual.wav" \
+            --output "$RUNNER_TEMP/pocket-tts-reference-cloned.wav"
+      - name: Inspect output independently with Python WAV reader
+        run: |
+          python3 - <<'PY'
+          import pathlib
+          import struct
+          import wave
+          import math
+          import os
+          p=pathlib.Path(os.environ["RUNNER_TEMP"]) / "pocket-tts-reference-cloned.wav"
+          with wave.open(str(p),"rb") as wav:
+              assert wav.getframerate() == 24000
+              assert wav.getnchannels() == 1
+              assert wav.getnframes() >= 2400
+              width=wav.getsampwidth()
+              assert width in (2,4)
+              samples=wav.readframes(wav.getnframes())
+              if width == 2:
+                  nums=struct.unpack("<"+"h"*(len(samples)//2),samples)
+                  peak=max(abs(x) for x in nums)/32768
+              else:
+                  nums=struct.unpack("<"+"i"*(len(samples)//4),samples)
+                  peak=max(abs(x) for x in nums)/2147483648
+              assert peak > 1e-5, "synthesized WAV is silent"
+              print(f"reference voice-cloned PCM verified: frames={len(nums)} peak={peak:.6f}")
+          PY
+      - name: Confirm no model weights or generated voice files entered Git
+        run: |
+          git status --short
+          test -z "$(git status --porcelain)"
