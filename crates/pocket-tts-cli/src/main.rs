@@ -4,11 +4,11 @@
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
+use pocket_tts_model::resident::finalize_streamed_wav;
 use pocket_tts_model::{
     inspect_wav, OfficialRustCli, ResidentOptions, ResidentRustServer, SynthesisEngine,
     SynthesisRequest, Voice,
 };
-use pocket_tts_model::resident::finalize_streamed_wav;
 use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};

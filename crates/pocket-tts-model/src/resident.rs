@@ -63,7 +63,8 @@ pub fn finalize_streamed_wav(path: &Path) -> Result<()> {
         .open(path)
         .with_context(|| format!("opening streamed WAV {}", path.display()))?;
     let mut header = [0u8; 44];
-    file.read_exact(&mut header).context("streamed WAV shorter than header")?;
+    file.read_exact(&mut header)
+        .context("streamed WAV shorter than header")?;
     anyhow::ensure!(
         &header[..4] == b"RIFF"
             && &header[8..12] == b"WAVE"
@@ -359,10 +360,8 @@ mod tests {
     use super::*;
     #[test]
     fn fixes_unseekable_stream_length_without_changing_pcm() {
-        let file = std::env::temp_dir().join(format!(
-            "pocket-tts-stream-fix-{}.wav",
-            std::process::id()
-        ));
+        let file =
+            std::env::temp_dir().join(format!("pocket-tts-stream-fix-{}.wav", std::process::id()));
         let spec = hound::WavSpec {
             channels: 1,
             sample_rate: 24_000,
@@ -372,7 +371,9 @@ mod tests {
         {
             let mut writer = hound::WavWriter::create(&file, spec).unwrap();
             for i in 0..4800 {
-                writer.write_sample(if i % 2 == 0 { 1200i16 } else { -1200i16 }).unwrap();
+                writer
+                    .write_sample(if i % 2 == 0 { 1200i16 } else { -1200i16 })
+                    .unwrap();
             }
             writer.finalize().unwrap();
         }
