@@ -11,7 +11,15 @@ fn main() -> Result<()> {
     let output = PathBuf::from(args.next().context("missing output WAV path")?);
     let start = std::time::Instant::now();
     eprintln!("CANDLE_ATTEMPT {variant}");
-    let model = TTSModel::load(&variant)
+    // The community port's older defaults (temperature=.7, EOS=-4)
+    // are not the released v4 compact-model generation defaults.
+    let (temperature, eos_threshold) = if variant == "probe-7m" || variant == "probe-18m" {
+        (0.3_f32, -1.0_f32)
+    } else {
+        (0.3_f32, -4.0_f32)
+    };
+    eprintln!("CANDLE_GENERATION_SETTINGS variant={variant} temp={temperature} eos={eos_threshold}");
+    let model = TTSModel::load_with_params(&variant, temperature, 1, eos_threshold)
         .with_context(|| format!("CANDLE_WEIGHT_LOAD_FAILURE {variant}"))?;
     eprintln!(
         "CANDLE_WEIGHTS_LOADED {variant} elapsed_ms={:.1}",
