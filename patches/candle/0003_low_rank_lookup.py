@@ -10,11 +10,11 @@ import sys
 if len(sys.argv) != 2:
     raise SystemExit("usage: 0003_low_rank_lookup.py /path/to/pinned-candle")
 root = Path(sys.argv[1]) / "crates/pocket-tts/src"
-def patch(path, old, new):
+def patch(path, old, new, count=1):
     p = root / path
     s = p.read_text()
-    assert s.count(old) == 1, f"upstream source changed: {path}: {old[:50]}"
-    p.write_text(s.replace(old, new))
+    assert s.count(old) == count, f"upstream source changed: {path}: {old[:50]}"
+    p.write_text(s.replace(old, new, 1))
 
 patch("config.rs",
       "    pub tokenizer_path: String,\n}",
@@ -62,7 +62,7 @@ patch("conditioners/text.rs",
             embed,
             proj,
             output_dim: dim,
-        })""")
+        })""", count=2)
 patch("conditioners/text.rs",
       """        Ok(Self {
             tokenizer: Arc::new(tokenizer),
