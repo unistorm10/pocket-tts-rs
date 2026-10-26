@@ -42,6 +42,11 @@ jobs:
           cp crates/pocket-tts-core/tests/fixtures/english-7m-v4.yaml "$dir/config/probe-7m.yaml"
           cp crates/pocket-tts-core/tests/fixtures/english-18m-refl-v4.yaml "$dir/config/probe-18m.yaml"
           cp benchmarks/candle_v4_probe.rs "$dir/examples/candle_v4_probe.rs"
+      - name: Apply audited v4 Mimi downsample compatibility patch
+        run: |
+          set -euo pipefail
+          python3 patches/candle/0001_mimi_downsample.py "$UPSTREAM_CANDLE"
+          cargo fmt --manifest-path "$UPSTREAM_CANDLE/Cargo.toml" --all
       - name: Compile actual upstream Candle FlowLM and Mimi inference example
         run: |
           set -euo pipefail
