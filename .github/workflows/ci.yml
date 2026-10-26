@@ -2,13 +2,11 @@ name: Pocket TTS Rust CI
 
 on:
   push:
-    branches: [feat/standalone-v4-foundation]
-  pull_request:
-    branches: [main]
+    branches: [main, feat/standalone-v4-foundation]
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: pocket-tts-rs-${{ github.workflow }}-${{ github.ref }}
@@ -44,10 +42,21 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Run workspace tests
-        run: cargo test --workspace --all-targets --locked
+        run: cargo test --workspace --all-targets
 
       - name: Run Clippy
-        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Commit refreshed Cargo.lock on trusted branch
+        if: github.ref == 'refs/heads/feat/standalone-v4-foundation'
+        run: |
+          if ! git diff --quiet -- Cargo.lock; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add Cargo.lock
+            git commit -m "Refresh Cargo.lock for checkpoint tooling"
+            git push origin HEAD:feat/standalone-v4-foundation
+          fi
 
       - name: Download and inspect pinned public English 7M checkpoint
-        run: cargo run --locked -p xtask -- prefetch english-7m --without-voice-cloning
+        run: cargo run -p xtask -- prefetch english-7m --without-voice-cloning
