@@ -19,6 +19,17 @@ that:
   export/import — plus forward-looking (SOTA/future-proofing) additions
   called out in Phase 9.
 
+## Standalone boundary and reference version (2026-10-26)
+
+- `pocket-tts-rs` is an independent MIT-licensed Rust engine and application. **Do not** add any dependency on SOMA, `phonation`, or platform types.
+- Phonation consumes the public Rust library and owns any `phonation::api::TtsBackend` implementation. Integration flows one-way: Phonation -> Pocket TTS. No Phonation API belongs in this repository.
+- The baseline reference is Kyutai Pocket TTS **v4.0.1** (October 2026), not the September config snapshot. Preserve support for `english.yaml`, `english_7m_2026-10.yaml` and `english_18m_refl_2026-10.yaml`, including asymmetric decoders, GQA, low-rank tables, tokenizer variations, normalization and EOS defaults.
+- Candle remains the primary inference stack. The baseline currently references Candle 0.8; coordinate with Phonation (currently Candle 0.11) only after refreshing Cargo.lock and proving a full build, never by silently bumping the dependency.
+- The Rust API, CLI and optional HTTP server must independently work with real model weights and offline cached weights. No placeholder audio can count as successful synthesis.
+- Phonation must support more than one registered speech engine; Pocket TTS must not implement its dispatcher internally.
+- The existing Phase 0 config fixtures are historical. New v4.0.1 fixtures and tests are required; later phases must port *current* upstream source and write golden tensor tests for the chosen version.
+- Run `cargo test --workspace` and real-weight synthesis integration tests before claiming build or inference readiness. These tests were **not** run as part of the configuration-only foundation update.
+
 ## Decisions locked in (from user)
 
 1. **Tensor backend: [`candle`](https://github.com/huggingface/candle)**
