@@ -117,13 +117,18 @@ jobs:
           # PyAV 18/19 removed that keyword. Pin the verified 17.x ABI.
           uv pip install --python "$venv/bin/python" "faster-whisper==1.2.1" "av==17.1.0"
           root="$RUNNER_TEMP/candle-real-diagnosis"
+          errors=0
           for variant in probe-english probe-7m probe-18m; do
             "$venv/bin/python" benchmarks/audio_qa.py \
               --wav "$root/$variant.wav" \
               --output "$root/$variant.quality.json" \
               --expected-text "Testing real Candle synthesis with a cloned voice." \
-              --asr-model "small.en" --threads 4
+              --asr-model "small.en" --threads 4 --max-wer 0.5 || errors=$((errors + 1))
           done
+          if (( errors > 0 )); then
+            echo "::error::Candle produced $errors unintelligible/invalid outputs out of 3; see per-model quality JSON. PCM alone is not accepted."
+            exit 1
+          fi
       - name: Save diagnosis only, never model weights or generated speech
         if: always()
         uses: actions/upload-artifact@v4
