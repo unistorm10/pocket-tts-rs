@@ -1,7 +1,7 @@
 //! Tooling for pinned, real Kyutai model checkpoint download and inspection.
 //! No neural outputs are faked: this verifies actual safetensors weights.
 
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 use pocket_tts_core::config::Config;
 use pocket_tts_core::download::download_if_necessary;
 use safetensors::SafeTensors;
@@ -63,7 +63,9 @@ fn inspect_weights(path: &Path, repo_ref: Option<&str>) -> Result<serde_json::Va
             acc.checked_mul(*dim as u64)
                 .context("tensor dimension overflow")
         })?;
-        parameters = parameters.checked_add(elements).context("parameter count overflow")?;
+        parameters = parameters
+            .checked_add(elements)
+            .context("parameter count overflow")?;
         nonzero_bytes += tensor.data().len() as u64;
         tensors += 1;
     }
@@ -84,11 +86,15 @@ fn inspect_weights(path: &Path, repo_ref: Option<&str>) -> Result<serde_json::Va
 fn prefetch(model: &str, without_voice_cloning: bool) -> Result<()> {
     let config = Config::from_yaml_str(config_yaml(model)?)?;
     let weights_ref = if without_voice_cloning {
-        config.weights_path_without_voice_cloning.as_deref().context(
-            "config does not provide non-voice-cloning weights",
-        )?
+        config
+            .weights_path_without_voice_cloning
+            .as_deref()
+            .context("config does not provide non-voice-cloning weights")?
     } else {
-        config.weights_path.as_deref().context("config does not provide model weights")?
+        config
+            .weights_path
+            .as_deref()
+            .context("config does not provide model weights")?
     };
     println!("Downloading pinned checkpoint for {model} via hf-hub cache");
     let checkpoint = download_if_necessary(weights_ref)
