@@ -55,8 +55,14 @@ pub struct TrainingPlan {
 impl TrainingPlan {
     pub fn new(source: impl AsRef<Path>, recipe: Recipe) -> Result<Self> {
         let source = source.as_ref();
-        anyhow::ensure!(source.is_dir(), "Kyutai source directory not found: {}", source.display());
-        let source = source.canonicalize().context("canonicalizing Kyutai source path")?;
+        anyhow::ensure!(
+            source.is_dir(),
+            "Kyutai source directory not found: {}",
+            source.display()
+        );
+        let source = source
+            .canonicalize()
+            .context("canonicalizing Kyutai source path")?;
         anyhow::ensure!(
             source.join("training/train.py").is_file(),
             "training/train.py is missing: supply a checkout of kyutai-labs/pocket-tts at tag v4.0.1"
@@ -67,7 +73,11 @@ impl TrainingPlan {
             "training recipe is missing: {}",
             config.display()
         );
-        Ok(Self { source, config, recipe })
+        Ok(Self {
+            source,
+            config,
+            recipe,
+        })
     }
 
     /// Confirm the recipe references real prepared training/validation manifests.
@@ -77,18 +87,26 @@ impl TrainingPlan {
             .with_context(|| format!("reading recipe {}", self.config.display()))?;
         let config: Value = serde_yaml::from_str(&config_str)
             .with_context(|| format!("parsing recipe {}", self.config.display()))?;
-        let dataset = config.get("data").context("training recipe lacks a data section")?;
+        let dataset = config
+            .get("data")
+            .context("training recipe lacks a data section")?;
         for field in ["train_jsonl", "valid_jsonl"] {
-            let relative = dataset.get(field).and_then(Value::as_str)
+            let relative = dataset
+                .get(field)
+                .and_then(Value::as_str)
                 .with_context(|| format!("missing data.{field} in training recipe"))?;
             self.require_file(relative, field)?;
         }
         if self.recipe == Recipe::DepthDistill {
-            let teacher = config.get("distill_teacher_weights").and_then(Value::as_str)
+            let teacher = config
+                .get("distill_teacher_weights")
+                .and_then(Value::as_str)
                 .context("distillation recipe lacks distill_teacher_weights")?;
             self.require_file(teacher, "distillation teacher checkpoint")?;
         }
-        let model_config = config.get("model_config").and_then(Value::as_str)
+        let model_config = config
+            .get("model_config")
+            .and_then(Value::as_str)
             .context("recipe lacks model_config")?;
         self.require_file(model_config, "model configuration")?;
         Ok(())
@@ -101,8 +119,16 @@ impl TrainingPlan {
         if reference.starts_with("hf://") || reference.starts_with("https://") {
             return Ok(());
         }
-        let resolved = if path.is_absolute() { path.to_path_buf() } else { self.source.join(path) };
-        anyhow::ensure!(resolved.is_file(), "{purpose} missing: {}", resolved.display());
+        let resolved = if path.is_absolute() {
+            path.to_path_buf()
+        } else {
+            self.source.join(path)
+        };
+        anyhow::ensure!(
+            resolved.is_file(),
+            "{purpose} missing: {}",
+            resolved.display()
+        );
         Ok(())
     }
 
@@ -139,17 +165,33 @@ mod tests {
 
     #[test]
     fn official_recipes_are_mapped_without_modifying_upstream() {
-        assert_eq!(Recipe::parse("scratch").unwrap().path(), "training/configs/scratch.yaml");
-        assert_eq!(Recipe::parse("finetune").unwrap().path(), "training/configs/finetune.yaml");
-        assert_eq!(Recipe::parse("finetune-language").unwrap().path(), "training/configs/finetune_language.yaml");
-        assert_eq!(Recipe::parse("depth-distill").unwrap().path(), "training/configs/depth_distill.yaml");
-        assert_eq!(Recipe::parse("drifting").unwrap().path(), "training/configs/drifting.yaml");
+        assert_eq!(
+            Recipe::parse("scratch").unwrap().path(),
+            "training/configs/scratch.yaml"
+        );
+        assert_eq!(
+            Recipe::parse("finetune").unwrap().path(),
+            "training/configs/finetune.yaml"
+        );
+        assert_eq!(
+            Recipe::parse("finetune-language").unwrap().path(),
+            "training/configs/finetune_language.yaml"
+        );
+        assert_eq!(
+            Recipe::parse("depth-distill").unwrap().path(),
+            "training/configs/depth_distill.yaml"
+        );
+        assert_eq!(
+            Recipe::parse("drifting").unwrap().path(),
+            "training/configs/drifting.yaml"
+        );
         assert!(Recipe::parse("lora").is_err()); // upstream does not ship a LoRA recipe
     }
 
     #[test]
     fn missing_checkout_cannot_launch_training() {
-        let missing = std::env::temp_dir().join("pocket-tts-rs-intentionally-missing-source-9dd1a294");
+        let missing =
+            std::env::temp_dir().join("pocket-tts-rs-intentionally-missing-source-9dd1a294");
         assert!(TrainingPlan::new(missing, Recipe::Scratch).is_err());
     }
 }

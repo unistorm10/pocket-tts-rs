@@ -11,7 +11,11 @@ fn main() -> Result<()> {
     let mut run = false;
     while let Some(arg) = args.next() {
         match arg.as_str() {
-            "--source" => source = Some(PathBuf::from(args.next().context("--source needs a directory")?)),
+            "--source" => {
+                source = Some(PathBuf::from(
+                    args.next().context("--source needs a directory")?,
+                ))
+            }
             "--recipe" => recipe = Recipe::parse(&args.next().context("--recipe needs a name")?)?,
             "--run" => run = true,
             "--help" | "-h" => {
@@ -24,7 +28,10 @@ fn main() -> Result<()> {
     }
     let source = source.context("missing --source (use --help)")?;
     let plan = TrainingPlan::new(source, recipe)?;
-    println!("Validated upstream training source: {}", plan.source.display());
+    println!(
+        "Validated upstream training source: {}",
+        plan.source.display()
+    );
     println!("Recipe: {}", plan.config.display());
     if run {
         plan.execute()?;
