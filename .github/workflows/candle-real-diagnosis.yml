@@ -1,0 +1,78 @@
+name: Pocket TTS Candle real checkpoint diagnosis
+
+on:
+  push:
+    branches: [feat/standalone-v4-foundation]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pocket-candle-real-diagnosis-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  candle-probe:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify full checkpoint permission
+        run: test -n "${HF_TOKEN:-}"
+      - name: Checkout exact audited Candle implementation
+        run: |
+          set -euo pipefail
+          git clone --quiet https://github.com/stepupgaming/pocket-tts.git "/tmp/pocket-candle-${GITHUB_RUN_ID}"
+          cd "/tmp/pocket-candle-${GITHUB_RUN_ID}"
+          git checkout --quiet dbf78c816cd83c89f11dbeb9d87290ad0a3dccd0
+          test "$(git rev-parse HEAD)" = dbf78c816cd83c89f11dbeb9d87290ad0a3dccd0
+          echo "UPSTREAM_CANDLE=$PWD" >> "$GITHUB_ENV"
+      - name: Provide official Kyutai v4 configs and real Candle example
+        run: |
+          set -euo pipefail
+          dir="$UPSTREAM_CANDLE/crates/pocket-tts"
+          mkdir -p "$dir/config" "$dir/examples"
+          cp crates/pocket-tts-core/tests/fixtures/english-v4.yaml "$dir/config/probe-english.yaml"
+          cp crates/pocket-tts-core/tests/fixtures/english-7m-v4.yaml "$dir/config/probe-7m.yaml"
+          cp crates/pocket-tts-core/tests/fixtures/english-18m-refl-v4.yaml "$dir/config/probe-18m.yaml"
+          cp benchmarks/candle_v4_probe.rs "$dir/examples/candle_v4_probe.rs"
+      - name: Compile actual upstream Candle FlowLM and Mimi inference example
+        run: |
+          set -euo pipefail
+          export CARGO_TARGET_DIR="$HOME/.cache/pocket_tts_rs_candle_candidate_target"
+          cargo build --release --locked -p pocket-tts --example candle_v4_probe --manifest-path "$UPSTREAM_CANDLE/Cargo.toml"
+      - name: Attempt all three full models and preserve exact failure reasons
+        run: |
+          set -uo pipefail
+          mkdir -p "$RUNNER_TEMP/candle-real-diagnosis"
+          binary="$HOME/.cache/pocket_tts_rs_candle_candidate_target/release/examples/candle_v4_probe"
+          report="$RUNNER_TEMP/candle-real-diagnosis/results.tsv"
+          printf 'model\texit_status\twav_produced\n' > "$report"
+          for model in probe-english probe-7m probe-18m; do
+            echo "CANDLE_PROBING $model"
+            "$binary" "$model" "$RUNNER_TEMP/candle-real-diagnosis/$model.wav" \
+              2> "$RUNNER_TEMP/candle-real-diagnosis/$model.log"
+            status=$?
+            tail -n 30 "$RUNNER_TEMP/candle-real-diagnosis/$model.log"
+            wav=0
+            test -f "$RUNNER_TEMP/candle-real-diagnosis/$model.wav" && wav=1
+            printf '%s\t%s\t%s\n' "$model" "$status" "$wav" >> "$report"
+          done
+          echo "Diagnostic outcomes (zero means end-to-end real Candle passed):"
+          cat "$report"
+      - name: Save diagnosis only, never model weights or generated speech
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: candle-model-layout-diagnosis
+          path: |
+            ${{ runner.temp }}/candle-real-diagnosis/results.tsv
+            ${{ runner.temp }}/candle-real-diagnosis/*.log
+          if-no-files-found: warn
+          retention-days: 30
