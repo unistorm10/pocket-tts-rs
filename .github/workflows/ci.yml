@@ -14,6 +14,8 @@ concurrency:
 
 jobs:
   rust:
+    permissions:
+      contents: write
     name: Rust workspace (self-hosted Linux)
     runs-on: [self-hosted, linux]
     timeout-minutes: 90
@@ -38,6 +40,20 @@ jobs:
           cargo fmt --version
           cargo clippy --version
 
+      - name: Normalize Rust formatting and Cargo lockfile
+        if: github.ref == 'refs/heads/feat/standalone-v4-foundation'
+        run: |
+          set -euo pipefail
+          cargo fmt --all
+          cargo generate-lockfile
+          if ! git diff --quiet -- crates xtask Cargo.lock; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add crates xtask Cargo.lock
+            git commit -m "Format training crate and update Cargo lockfile"
+            git push origin HEAD:feat/standalone-v4-foundation
+          fi
+
       - name: Verify formatting
         run: cargo fmt --all -- --check
 
@@ -54,6 +70,7 @@ jobs:
         run: cargo run --locked -p xtask -- prefetch english --without-voice-cloning
 
   full-weights:
+    if: github.event_name == 'workflow_dispatch'
     name: Full Kyutai voice-cloning checkpoint (gated)
     runs-on: [self-hosted, linux]
     timeout-minutes: 90
