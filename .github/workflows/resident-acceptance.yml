@@ -1,8 +1,6 @@
 name: Pocket TTS resident backend voice cloning acceptance
 
 on:
-  push:
-    branches: [feat/standalone-v4-foundation]
   workflow_dispatch:
 
 permissions:

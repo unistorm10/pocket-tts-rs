@@ -20,6 +20,15 @@ This plan supersedes the prior port-every-layer-from-Python phases in
 6. Verify Cargo tests, Clippy, lockfile, CI; keep the proof link.
 **Gate passed:** [Run #40368083804](https://github.com/unistorm10/pocket-tts-rs/actions/runs/40368083804) produced real 24 kHz cloned speech with an external reference-audio sample and verified non-silent PCM. This process-backed bridge is *not* the final streaming/embedded engine.
 
+## Milestone A2: persistent Rust/XN bridge (validated 2026-10-26)
+- `pocket_tts_model::ResidentRustServer` now starts the official pinned Rust/XN HTTP server on a localhost-only ephemeral port, keeps the model resident, and kills/reaps its child on drop.
+- `stream_wav` supplies bounded 64 KiB chunks via a Rust callback; the host receives first-PCM and end-to-end latency. `synthesize_wav` writes to a WAV file.
+- `finalize_streamed_wav` repairs Kyutai's intentionally oversized HTTP WAV header to the actual PCM length; regression test catches the previous EOF failure.
+- `pocket-tts generate-resident --repeat 2` exercises persistent model and URL voice-state caching, including real reference-audio voice cloning.
+- [7/7 real WAV acceptance](https://github.com/unistorm10/pocket-tts-rs/actions/runs/40392318011) covers all three full voice-cloning models (two requests each) and a local WAV multipart upload, verified independently at 24 kHz with nonzero PCM.
+- Limitation: **local file uploads are re-encoded** by the official server every request; only preset and voice URLs are reused in its existing LRU cache. Persistent local voice states and an in-process Candle backend remain to implement.
+- Both expensive gated inference workflows are now manual-only and normal CI read-only.
+
 ## Milestone B: reuse the existing Candle implementation
 1. Pin a reviewed `stepupgaming/pocket-tts` commit and save license notices.
 2. Adapt its neural modules (`SEANet`, `Mimi`, `FlowLM`, attention/KV, text) into our backend under a `candle` feature. Prefer reusing upstream code to retyping it.
