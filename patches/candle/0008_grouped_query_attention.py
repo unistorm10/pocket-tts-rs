@@ -266,4 +266,13 @@ patch("tts_model.rs",
             config.flow_lm.transformer.attn_dim.unwrap_or(dim),
             config.flow_lm.transformer.num_layers,""")
 
+patch("models/transformer.rs",
+    """            num_kv_heads,
+            attn_dim,
+            num_heads,
+            rope,""",
+    """            num_kv_heads,
+            attn_dim,
+            rope,""")
+
 print("Applied real GQA: Q=512, KV=128×2 packed projection, compact streaming KV cache, and head expansion in SDPA")
