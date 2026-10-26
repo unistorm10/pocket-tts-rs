@@ -104,6 +104,22 @@ jobs:
               success += 1
           print(f"CANDLE_VERIFIED_REAL_WAV_COUNT={success}")
           PY
+      - name: Independently score acoustic integrity and intelligibility
+        run: |
+          set -euo pipefail
+          venv="$HOME/.cache/pocket_tts_rs_audio_qa_venv"
+          if [[ ! -x "$venv/bin/python" ]]; then
+            python3 -m venv "$venv"
+          fi
+          "$venv/bin/python" -m pip install --disable-pip-version-check -q "faster-whisper==1.2.1"
+          root="$RUNNER_TEMP/candle-real-diagnosis"
+          for variant in probe-english probe-7m probe-18m; do
+            "$venv/bin/python" benchmarks/audio_qa.py \
+              --wav "$root/$variant.wav" \
+              --output "$root/$variant.quality.json" \
+              --expected-text "Testing real Candle synthesis with a cloned voice." \
+              --asr-model "small.en" --threads 4
+          done
       - name: Save diagnosis only, never model weights or generated speech
         if: always()
         uses: actions/upload-artifact@v4
@@ -112,5 +128,6 @@ jobs:
           path: |
             ${{ runner.temp }}/candle-real-diagnosis/results.tsv
             ${{ runner.temp }}/candle-real-diagnosis/*.log
+            ${{ runner.temp }}/candle-real-diagnosis/*.quality.json
           if-no-files-found: warn
           retention-days: 30
