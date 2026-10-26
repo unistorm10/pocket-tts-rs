@@ -1632,9 +1632,11 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "candle-core",
+ "candle-nn",
  "dirs",
  "hf-hub",
  "reqwest",
+ "safetensors",
  "serde",
  "serde_yaml",
  "sha2",
@@ -3005,6 +3007,7 @@ name = "xtask"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "candle-core",
  "pocket-tts-core",
  "safetensors",
  "serde_json",
