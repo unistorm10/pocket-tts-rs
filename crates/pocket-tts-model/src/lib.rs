@@ -1,3 +1,6 @@
+pub mod resident;
+pub use resident::{ResidentOptions, ResidentRustServer, StreamTiming};
+
 //! Standalone public Pocket TTS model surface.
 //!
 //! The first executable backend delegates to Kyutai's already-implemented Rust
