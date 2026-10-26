@@ -3005,6 +3005,10 @@ name = "xtask"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "pocket-tts-core",
+ "safetensors",
+ "serde_json",
+ "sha2",
 ]
 
 [[package]]
