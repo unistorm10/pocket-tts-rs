@@ -48,7 +48,12 @@ See [resident inference usage](docs/RESIDENT_INFERENCE.md), [reference inference
 
 The primary model source is [kyutai/pocket-tts](https://huggingface.co/kyutai/pocket-tts), with **voice cloning required**. Access to the full checkpoint is gated by Kyutai's model terms and may require an authorized Hugging Face login/token. The library must not silently fall back to the reduced encoder-disabled checkpoint.
 
-The `kyutai/pocket-tts-without-voice-cloning` checkpoints are deliberately reduced and permitted **only** for public CI and non-cloning comparisons. `xtask prefetch english` targets the full gated checkpoint; `--without-voice-cloning` must be explicit.
+**Only the full gated `kyutai/pocket-tts` repository is supported.**
+There is no reduced-model mode, fallback or special CI exception. Every model
+must retain all 42 active Mimi voice-encoder tensors, and its SHA-256 must
+match the pinned official full checkpoint. Tokenizers also come from the gated
+repository, with an authorized Hugging Face token. Missing permissions fail
+explicitly instead of silently switching to incomplete models.
 
 ## Standalone training
 

@@ -79,6 +79,10 @@ fn inspect_weights(path: &Path, repo_ref: Option<&str>) -> Result<serde_json::Va
         tensors += 1;
     }
     anyhow::ensure!(nonzero_bytes > 0, "checkpoint has no tensor payload data");
+    anyhow::ensure!(
+        encoder_tensor_count == 42 && nonzero_encoder_tensors == 42,
+        "checkpoint is missing required active Mimi voice encoder (expected 42/42 tensors)"
+    );
     let (digest, file_size) = sha256_file(path)?;
     Ok(json!({
         "path": path.display().to_string(),

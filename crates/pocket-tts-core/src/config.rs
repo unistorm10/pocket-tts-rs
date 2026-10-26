@@ -188,7 +188,17 @@ impl Config {
     /// validation step (the download step is handled separately by
     /// `crate::download::download_if_necessary`).
     pub fn from_yaml_str(yaml: &str) -> anyhow::Result<Self> {
-        let config: Config = serde_yaml::from_str(yaml)?;
+        // Kyutai's upstream config still names a legacy encoder-disabled
+        // alternative. Accept the official YAML syntax for compatibility,
+        // but discard that field before constructing our configuration.
+        // It can never be selected by the Rust model loader.
+        let mut value: serde_yaml::Value = serde_yaml::from_str(yaml)?;
+        if let Some(map) = value.as_mapping_mut() {
+            map.remove(serde_yaml::Value::String(
+                "weights_path_without_voice_cloning".to_string(),
+            ));
+        }
+        let config: Config = serde_yaml::from_value(value)?;
         Ok(config)
     }
 
