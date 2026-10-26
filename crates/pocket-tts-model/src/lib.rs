@@ -1,12 +1,12 @@
-pub mod resident;
-pub use resident::{ResidentOptions, ResidentRustServer, StreamTiming};
-
 //! Standalone public Pocket TTS model surface.
 //!
 //! The first executable backend delegates to Kyutai's already-implemented Rust
 //! inference CLI, compiled from a pinned upstream commit. This keeps a real
 //! synthesis path available while an in-process Candle backend is adapted.
 //! There is no dependency on Phonation, SOMA, Python or a network service.
+
+pub mod resident;
+pub use resident::{ResidentOptions, ResidentRustServer, StreamTiming};
 
 use anyhow::{bail, Context, Result};
 use std::path::{Path, PathBuf};

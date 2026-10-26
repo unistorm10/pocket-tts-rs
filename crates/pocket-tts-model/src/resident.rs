@@ -182,7 +182,7 @@ impl ResidentRustServer {
         if !response.status().is_success() {
             let status = response.status();
             let text = response.text().unwrap_or_default();
-            bail!("resident voice synthesis failed: {status}: {}", &text[..text.len().min(300)]);
+            bail!("resident voice synthesis failed: {status}: {}", text.chars().take(300).collect::<String>());
         }
         let content_type = response.headers().get(reqwest::header::CONTENT_TYPE)
             .and_then(|v| v.to_str().ok()).unwrap_or("");
@@ -200,15 +200,11 @@ impl ResidentRustServer {
                 let copy = (44 - prefix.len()).min(count);
                 prefix.extend_from_slice(&buf[..copy]);
             }
-            let previous = total_bytes;
             total_bytes += count as u64;
             if first_pcm.is_none() && total_bytes > 44 {
                 first_pcm = Some(start.elapsed());
             }
             on_bytes(&buf[..count])?;
-            // Explicitly consume the variable to keep all transferred data
-            // accounted for, including the WAV header.
-            debug_assert!(total_bytes >= previous);
         }
         anyhow::ensure!(
             prefix.len() == 44 && &prefix[0..4] == b"RIFF" &&
