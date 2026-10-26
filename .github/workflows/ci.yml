@@ -48,3 +48,6 @@ jobs:
 
       - name: Run Clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      - name: Download and inspect pinned public English 7M checkpoint
+        run: cargo run --locked -p xtask -- prefetch english-7m --without-voice-cloning
