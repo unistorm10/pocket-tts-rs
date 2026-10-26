@@ -57,21 +57,28 @@ pub fn analyze_legacy_candle(config: &Config) -> CandleReuseReport {
         );
     }
     let transformer = &config.flow_lm.transformer;
-    if transformer.num_kv_heads.is_some_and(|kv| kv != transformer.num_heads) {
+    if transformer
+        .num_kv_heads
+        .is_some_and(|kv| kv != transformer.num_heads)
+    {
         add(
             "grouped_query_attention",
             "The model requires distinct grouped KV heads in flow attention",
         );
     }
-    if transformer.attn_dim.is_some_and(|dim| dim != transformer.d_model) {
+    if transformer
+        .attn_dim
+        .is_some_and(|dim| dim != transformer.d_model)
+    {
         add(
             "attention_projection_width",
             "The model has an explicit attention projection width",
         );
     }
-    if transformer.dim_feedforward.is_some_and(|dim| {
-        dim != transformer.d_model * transformer.hidden_scale
-    }) {
+    if transformer
+        .dim_feedforward
+        .is_some_and(|dim| dim != transformer.d_model * transformer.hidden_scale)
+    {
         add(
             "feedforward_width",
             "The model overrides the default feedforward projection width",
@@ -101,9 +108,11 @@ pub fn analyze_legacy_candle(config: &Config) -> CandleReuseReport {
             "The legacy text preprocessor does not apply the v4 character substitution map",
         );
     }
-    if config.mimi.outer_dim.is_some_and(|outer| {
-        outer != config.mimi.quantizer.output_dimension
-    }) {
+    if config
+        .mimi
+        .outer_dim
+        .is_some_and(|outer| outer != config.mimi.quantizer.output_dimension)
+    {
         add(
             "mimi_outer_projection",
             "Mimi outer dimension differs from the expected quantizer output dimension",
@@ -122,9 +131,8 @@ mod tests {
 
     #[test]
     fn full_english_requires_voice_prefix_and_text_handling() {
-        let report = analyze_legacy_candle(&config(include_str!(
-            "../tests/fixtures/english-v4.yaml"
-        )));
+        let report =
+            analyze_legacy_candle(&config(include_str!("../tests/fixtures/english-v4.yaml")));
         assert!(report.has_gap("voice_bos"));
         assert!(report.has_gap("text_normalization"));
         assert!(!report.has_gap("asymmetric_seanet"));
