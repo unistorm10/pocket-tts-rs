@@ -66,7 +66,7 @@ jobs:
         run: cargo run --locked -p xtask -- prefetch english --without-voice-cloning
 
   full-weights:
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/feat/standalone-v4-foundation')
+    if: github.event_name == 'workflow_dispatch'
     name: Full Kyutai voice-cloning checkpoint (gated)
     runs-on: [self-hosted, linux]
     timeout-minutes: 90
