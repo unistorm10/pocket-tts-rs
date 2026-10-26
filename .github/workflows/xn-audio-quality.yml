@@ -1,0 +1,77 @@
+name: Pocket TTS XN reference audio quality control
+
+on:
+  push:
+    branches: [feat/standalone-v4-foundation]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pocket-xn-audio-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  reference-quality:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify official full model authorization
+        run: test -n "${HF_TOKEN:-}"
+      - name: Checkout audited first-party native Rust release
+        run: |
+          set -euo pipefail
+          target="/tmp/pocket-tts-xn-qa-${GITHUB_RUN_ID}"
+          git clone --quiet --depth 1 --branch v4.0.1 https://github.com/kyutai-labs/pocket-tts.git "$target"
+          test "$(git -C "$target" rev-parse HEAD)" = a922b912dfa366975294afb568d815b305acde5d
+          echo "XN_SOURCE=$target" >> "$GITHUB_ENV"
+      - name: Build pinned official XN engine
+        run: |
+          set -euo pipefail
+          cmake_path="$HOME/.cache/pocket_tts_rs_build_tools/cmake-3.30.9-linux-x86_64/bin"
+          if ! command -v cmake >/dev/null 2>&1; then
+            test -x "$cmake_path/cmake"
+            export PATH="$cmake_path:$PATH"
+          fi
+          export CARGO_TARGET_DIR="$HOME/.cache/pocket_tts_rs_reference_target"
+          cargo build --release --locked --manifest-path "$XN_SOURCE/rust/Cargo.toml"
+      - name: Generate real reference voice speech from official Rust inference
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/pocket-xn-qa"
+          cargo run --release --locked -p pocket-tts-cli -- generate \
+            --reference-bin "$HOME/.cache/pocket_tts_rs_reference_target/release/pocket-tts" \
+            --language english \
+            --voice "hf://kyutai/tts-voices/alba-mackenna/casual.wav" \
+            --text "Testing real Candle synthesis with a cloned voice." \
+            --output "$RUNNER_TEMP/pocket-xn-qa/reference.wav"
+      - name: Setup ASR outside system Python
+        uses: astral-sh/setup-uv@v6
+      - name: Score independent ASR intelligibility and audio integrity
+        run: |
+          set -euo pipefail
+          venv="$HOME/.cache/pocket_tts_rs_audio_qa_venv"
+          if [[ ! -x "$venv/bin/python" ]]; then
+            uv venv --python python3 "$venv"
+          fi
+          uv pip install --python "$venv/bin/python" "faster-whisper==1.2.1" "av==17.1.0"
+          "$venv/bin/python" benchmarks/audio_qa.py \
+            --wav "$RUNNER_TEMP/pocket-xn-qa/reference.wav" \
+            --output "$RUNNER_TEMP/pocket-xn-qa/reference.quality.json" \
+            --expected-text "Testing real Candle synthesis with a cloned voice." \
+            --asr-model small.en --threads 4 --max-wer 0.5
+      - name: Publish metrics only, never audio/reference/weights
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xn-official-reference-asr-quality
+          path: ${{ runner.temp }}/pocket-xn-qa/reference.quality.json
+          if-no-files-found: warn
+          retention-days: 30
