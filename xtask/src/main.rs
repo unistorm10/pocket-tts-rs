@@ -97,11 +97,21 @@ fn inspect_weights(path: &Path, repo_ref: Option<&str>) -> Result<serde_json::Va
 
 fn expected_checkpoint_sha256(model: &str, without_voice_cloning: bool) -> Option<&'static str> {
     match (model, without_voice_cloning) {
-        ("english", false) => Some("bc96b82436c5ec00d3118ef3b01bc3358423e1766ecae3dca0aeea84789e7d74"),
-        ("english-7m", false) => Some("1200a5d97d82b95804e76e3042ce88787773486a0d95e00737650667c2bee844"),
-        ("english-18m-refl", false) => Some("c99f4a179cffa070cdeb3ffc1ae950ebf16038c762c84dd79997868ac0a806c8"),
-        ("english", true) => Some("4c56cbd171c63e8a26ea61f5d48b8a0cd8f3c51f4652c0ab9a19bfcced8c931d"),
-        ("english-7m", true) => Some("aea704a2989277c1a700abc16fb1442cb6baa2fa9ad32251ef7a5f91e4eb7d58"),
+        ("english", false) => {
+            Some("bc96b82436c5ec00d3118ef3b01bc3358423e1766ecae3dca0aeea84789e7d74")
+        }
+        ("english-7m", false) => {
+            Some("1200a5d97d82b95804e76e3042ce88787773486a0d95e00737650667c2bee844")
+        }
+        ("english-18m-refl", false) => {
+            Some("c99f4a179cffa070cdeb3ffc1ae950ebf16038c762c84dd79997868ac0a806c8")
+        }
+        ("english", true) => {
+            Some("4c56cbd171c63e8a26ea61f5d48b8a0cd8f3c51f4652c0ab9a19bfcced8c931d")
+        }
+        ("english-7m", true) => {
+            Some("aea704a2989277c1a700abc16fb1442cb6baa2fa9ad32251ef7a5f91e4eb7d58")
+        }
         // Reduced 18M REFL checkpoint remains unverified; no hash is claimed.
         _ => None,
     }
