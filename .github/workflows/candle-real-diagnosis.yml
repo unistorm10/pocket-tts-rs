@@ -47,6 +47,7 @@ jobs:
           set -euo pipefail
           python3 patches/candle/0001_mimi_downsample.py "$UPSTREAM_CANDLE"
           python3 patches/candle/0002_projection_width.py "$UPSTREAM_CANDLE"
+          python3 patches/candle/0003_low_rank_lookup.py "$UPSTREAM_CANDLE"
           cargo fmt --manifest-path "$UPSTREAM_CANDLE/Cargo.toml" --all
       - name: Compile actual upstream Candle FlowLM and Mimi inference example
         run: |
@@ -75,6 +76,29 @@ jobs:
           done
           echo "Diagnostic outcomes (zero means end-to-end real Candle passed):"
           cat "$report"
+      - name: Independently inspect any real Candle WAV without archiving its PCM
+        run: |
+          python3 - <<'PY'
+          import math, os, pathlib, struct, wave
+          root = pathlib.Path(os.environ["RUNNER_TEMP"]) / "candle-real-diagnosis"
+          success = 0
+          for variant in ("probe-english", "probe-7m", "probe-18m"):
+              wav = root / (variant + ".wav")
+              if not wav.exists():
+                  print(f"CANDLE_NOT_SYNTHESIZED {variant}")
+                  continue
+              with wave.open(str(wav), "rb") as reader:
+                  rate, channels, frames = reader.getframerate(), reader.getnchannels(), reader.getnframes()
+                  assert rate == 24000 and channels == 1, f"Invalid PCM format for {variant}: {rate}hz channels={channels}"
+                  pcm = reader.readframes(frames)
+              assert frames > 2400 and len(pcm) == frames * 2, f"No decoded frames for {variant}"
+              samples = struct.unpack("<" + "h" * frames, pcm)
+              rms = math.sqrt(sum(float(x)*x for x in samples)/frames)/32768
+              assert rms > 0.00001, f"Silent output for {variant}"
+              print(f"CANDLE_PCM_VERIFIED variant={variant} duration_s={frames/rate:.3f} rms={rms:.6f}")
+              success += 1
+          print(f"CANDLE_VERIFIED_REAL_WAV_COUNT={success}")
+          PY
       - name: Save diagnosis only, never model weights or generated speech
         if: always()
         uses: actions/upload-artifact@v4
