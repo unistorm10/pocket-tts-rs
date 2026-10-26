@@ -24,21 +24,20 @@ jobs:
       RAYON_NUM_THREADS: "4"
     steps:
       - uses: actions/checkout@v4
-      - name: Checkout pinned Kyutai reference
-        uses: actions/checkout@v4
-        with:
-          repository: kyutai-labs/pocket-tts
-          ref: a922b912dfa366975294afb568d815b305acde5d
-          path: upstream/kyutai-pocket-tts
+      - name: Clone pinned Kyutai release outside this Cargo workspace
+        run: |
+          set -euo pipefail
+          git clone --quiet --depth 1 --branch v4.0.1 https://github.com/kyutai-labs/pocket-tts.git "$RUNNER_TEMP/kyutai-pocket-tts"
+          test "$(git -C "$RUNNER_TEMP/kyutai-pocket-tts" rev-parse HEAD)" = "a922b912dfa366975294afb568d815b305acde5d"
       - name: Build official native Rust inference binary
         run: |
           set -euo pipefail
-          cargo build --release --locked --manifest-path upstream/kyutai-pocket-tts/rust/Cargo.toml
+          cargo build --release --locked --manifest-path "$RUNNER_TEMP/kyutai-pocket-tts/rust/Cargo.toml"
       - name: Generate and validate real cloned-voice audio
         run: |
           set -euo pipefail
           test -n "${HF_TOKEN:-}" || { echo "::error::HF_TOKEN missing"; exit 1; }
-          export POCKET_TTS_REFERENCE_BIN="$PWD/upstream/kyutai-pocket-tts/rust/target/release/pocket-tts"
+          export POCKET_TTS_REFERENCE_BIN="$RUNNER_TEMP/kyutai-pocket-tts/rust/target/release/pocket-tts"
           test -x "$POCKET_TTS_REFERENCE_BIN"
           cargo run --release --locked -p pocket-tts-cli -- generate \
             --text "This is the first verified Rust voice cloning test." \

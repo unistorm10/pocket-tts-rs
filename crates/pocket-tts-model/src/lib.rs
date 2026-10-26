@@ -53,7 +53,10 @@ pub struct SynthesisRequest {
 impl SynthesisRequest {
     pub fn validate(&self) -> Result<()> {
         anyhow::ensure!(!self.text.trim().is_empty(), "synthesis text is empty");
-        anyhow::ensure!(!self.language.trim().is_empty(), "language must not be empty");
+        anyhow::ensure!(
+            !self.language.trim().is_empty(),
+            "language must not be empty"
+        );
         self.voice.as_argument()?;
         Ok(())
     }
@@ -93,9 +96,15 @@ pub struct OfficialRustCli {
 impl OfficialRustCli {
     pub fn new(binary: impl AsRef<Path>) -> Result<Self> {
         let binary = binary.as_ref();
-        anyhow::ensure!(binary.is_file(), "Kyutai Rust binary not found: {}", binary.display());
+        anyhow::ensure!(
+            binary.is_file(),
+            "Kyutai Rust binary not found: {}",
+            binary.display()
+        );
         Ok(Self {
-            binary: binary.canonicalize().context("resolving official Rust binary")?,
+            binary: binary
+                .canonicalize()
+                .context("resolving official Rust binary")?,
         })
     }
 
@@ -107,11 +116,17 @@ impl OfficialRustCli {
 impl SynthesisEngine for OfficialRustCli {
     fn synthesize_wav(&self, request: &SynthesisRequest, output: &Path) -> Result<GeneratedAudio> {
         request.validate()?;
-        anyhow::ensure!(output.extension().and_then(|e| e.to_str()) == Some("wav"),
-            "output file must end in .wav");
+        anyhow::ensure!(
+            output.extension().and_then(|e| e.to_str()) == Some("wav"),
+            "output file must end in .wav"
+        );
         let voice = request.voice.as_argument()?;
         if let Some(parent) = output.parent() {
-            anyhow::ensure!(parent.is_dir(), "output directory missing: {}", parent.display());
+            anyhow::ensure!(
+                parent.is_dir(),
+                "output directory missing: {}",
+                parent.display()
+            );
         }
         // Do not accidentally validate an old WAV if the upstream CLI fails.
         if output.exists() {
@@ -134,7 +149,9 @@ impl SynthesisEngine for OfficialRustCli {
         if request.quantize {
             command.arg("--quantize");
         }
-        let status = command.status().context("executing official Rust Pocket TTS binary")?;
+        let status = command
+            .status()
+            .context("executing official Rust Pocket TTS binary")?;
         if !status.success() {
             bail!("official Rust TTS generation failed ({status}); no audio result");
         }
@@ -185,7 +202,10 @@ pub fn inspect_wav(path: &Path) -> Result<GeneratedAudio> {
             }
         }
     }
-    anyhow::ensure!(n >= u64::from(spec.sample_rate / 10), "generated audio is too short");
+    anyhow::ensure!(
+        n >= u64::from(spec.sample_rate / 10),
+        "generated audio is too short"
+    );
     let rms = (energy / n as f64).sqrt();
     anyhow::ensure!(peak > 1e-5 && rms > 1e-6, "generated audio is silent");
     Ok(GeneratedAudio {
@@ -213,7 +233,9 @@ mod tests {
         assert!(Voice::ReferenceAudio(PathBuf::from("/does/not/exist.wav"))
             .as_argument()
             .is_err());
-        assert!(Voice::HubAudio("ftp://untrusted".into()).as_argument().is_err());
+        assert!(Voice::HubAudio("ftp://untrusted".into())
+            .as_argument()
+            .is_err());
     }
 
     #[test]

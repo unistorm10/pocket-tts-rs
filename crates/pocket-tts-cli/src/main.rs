@@ -4,9 +4,7 @@
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
-use pocket_tts_model::{
-    OfficialRustCli, SynthesisEngine, SynthesisRequest, Voice,
-};
+use pocket_tts_model::{OfficialRustCli, SynthesisEngine, SynthesisRequest, Voice};
 use std::path::PathBuf;
 
 #[derive(Parser)]
