@@ -29,13 +29,23 @@ jobs:
           set -euo pipefail
           git clone --quiet --depth 1 --branch v4.0.1 https://github.com/kyutai-labs/pocket-tts.git "/tmp/pocket-tts-kyutai-${GITHUB_RUN_ID}"
           test "$(git -C "/tmp/pocket-tts-kyutai-${GITHUB_RUN_ID}" rev-parse HEAD)" = "a922b912dfa366975294afb568d815b305acde5d"
-      - name: Ensure CMake native build prerequisite
+      - name: Provision checksum-verified user-space CMake
         run: |
           set -euo pipefail
           if ! command -v cmake >/dev/null 2>&1; then
-            command -v sudo >/dev/null 2>&1 || { echo "::error::CMake missing and sudo unavailable"; exit 1; }
-            sudo -n apt-get update -qq
-            sudo -n DEBIAN_FRONTEND=noninteractive apt-get install -y -qq cmake
+            # No sudo privileges on the self-hosted runner: install into HOME.
+            version=3.30.9
+            package="cmake-${version}-linux-x86_64"
+            root="$HOME/.cache/pocket_tts_rs_build_tools"
+            mkdir -p "$root"
+            if [[ ! -x "$root/$package/bin/cmake" ]]; then
+              url="https://github.com/Kitware/CMake/releases/download/v${version}/${package}.tar.gz"
+              curl --retry 3 -fsSL "$url" -o "$root/${package}.tar.gz"
+              echo "9114e33358a9efc93d6ea658805280fc3201b882b944a4d946edd9472fd1eec7  $root/${package}.tar.gz" | sha256sum --check -
+              tar -xzf "$root/${package}.tar.gz" -C "$root"
+            fi
+            export PATH="$root/$package/bin:$PATH"
+            echo "$root/$package/bin" >> "$GITHUB_PATH"
           fi
           cmake --version
 
