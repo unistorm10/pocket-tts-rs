@@ -46,6 +46,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 patches/candle/0001_mimi_downsample.py "$UPSTREAM_CANDLE"
+          python3 patches/candle/0002_speaker_projection.py "$UPSTREAM_CANDLE"
           python3 patches/candle/0002_projection_width.py "$UPSTREAM_CANDLE"
           python3 patches/candle/0003_low_rank_lookup.py "$UPSTREAM_CANDLE"
           python3 patches/candle/0004_drifting_sampler.py "$UPSTREAM_CANDLE"
