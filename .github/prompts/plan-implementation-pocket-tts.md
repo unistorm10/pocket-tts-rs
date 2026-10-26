@@ -1,5 +1,16 @@
 # Rust-native port of kyutai-labs/pocket-tts
 
+> **Reuse-first gate (October 26, 2026):** The original phases below were written
+> as a ground-up Python-to-Candle port before existing Rust implementations were
+> fully audited. **Do not implement additional neural-network layers from scratch
+> by following those phases without first completing [the Rust reuse audit](../../docs/RUST_IMPLEMENTATION_AUDIT.md).**
+> Kyutai already ships a functioning Rust CLI using the `ptts`/XN neural engine,
+> while the community Candle implementation provides working FlowLM/Mimi/SEANet
+> code. Benchmark/reference the official Rust port and reuse/adapt the Candle
+> modules first. Preserve Candle as the preferred backend, and allow an optional
+> standalone XN baseline when validated. Original phase descriptions are historical
+> planning material; the reuse audit supersedes their port-from-zero assumptions.
+
 ## Problem
 
 Port pocket-tts (a CPU-friendly flow-matching TTS model: FlowLM transformer +

@@ -6,6 +6,10 @@ Standalone Rust-native port of [Kyutai Pocket TTS](https://github.com/kyutai-lab
 
 The engine is completely independent of SOMA and Phonation. Phonation may integrate it as one of multiple backends via its own interface, but this repository must remain usable without Phonation.
 
+## Reuse-first implementation strategy
+
+Existing Rust engines have already implemented much of Pocket TTS. Before adding more new FlowLM/Mimi/Candle code, compare Kyutai's official v4.0.1 Rust/XN runtime and the substantial community Candle port. The [Rust implementation audit](docs/RUST_IMPLEMENTATION_AUDIT.md) records the candidate repositories, licenses, version gaps and required real-weight acceptance tests. It supersedes any older port-every-module-from-Python assumptions in the implementation plan.
+
 ## Workspace
 
 - `pocket-tts-core`: configuration and download/cache utilities; current upstream config fixtures
