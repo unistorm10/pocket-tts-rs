@@ -29,7 +29,7 @@ impl ModelWeights {
     /// Returns all tensor names found in the real checkpoint.
     pub fn names(&self) -> Result<Vec<String>> {
         let tensors = SafeTensors::deserialize(&self.data)?;
-        Ok(tensors.names().into_iter().map(str::to_string).collect())
+        Ok(tensors.names().into_iter().map(|name| name.to_string()).collect())
     }
 
     /// Produce a native Candle weight source; the checkpoint stays owned by this object.
