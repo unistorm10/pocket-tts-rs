@@ -67,6 +67,22 @@ impl TrainingPlan {
             source.join("training/train.py").is_file(),
             "training/train.py is missing: supply a checkout of kyutai-labs/pocket-tts at tag v4.0.1"
         );
+        // Refuse unreviewed upstream training code by default. Training can
+        // run arbitrary Python with GPU/data access, so the source is pinned.
+        const UPSTREAM_V4_0_1: &str = "a922b912dfa366975294afb568d815b305acde5d";
+        let revision = Command::new("git")
+            .args(["rev-parse", "HEAD"])
+            .current_dir(&source)
+            .output()
+            .context("git is required to verify the upstream training source")?;
+        anyhow::ensure!(revision.status.success(), "could not verify Kyutai checkout revision");
+        let head = String::from_utf8(revision.stdout)
+            .context("git returned a non-UTF8 revision")?;
+        anyhow::ensure!(
+            head.trim() == UPSTREAM_V4_0_1,
+            "training source is not pinned to Kyutai v4.0.1: expected {UPSTREAM_V4_0_1}, got {}",
+            head.trim()
+        );
         let config = source.join(recipe.path());
         anyhow::ensure!(
             config.is_file(),

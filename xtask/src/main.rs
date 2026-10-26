@@ -118,6 +118,12 @@ fn prefetch(model: &str, without_voice_cloning: bool) -> Result<()> {
             "requested the full voice-cloning checkpoint, but the model has no active mimi.encoder tensors; refusing a reduced checkpoint"
         );
     }
+    if without_voice_cloning {
+        anyhow::ensure!(
+            inspection["voice_cloning_encoder_active"] == false,
+            "the supposedly reduced checkpoint has an active voice encoder; check its provenance"
+        );
+    }
     println!("{}", serde_json::to_string_pretty(&inspection)?);
 
     // Force an actual checkpoint tensor through Candle's native safetensors loader

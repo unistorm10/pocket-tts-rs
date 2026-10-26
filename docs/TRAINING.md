@@ -33,3 +33,9 @@ On ~16 GB VRAM, Kyutai documents `batch_size: 16`, `grad_accum_steps: 4` as an a
 Kyutai exports `model.safetensors` for inference and `checkpoint_*.pt` for resuming training. Do not mistake a PyTorch optimizer/training checkpoint for a Candle inference file. Future work includes a native Rust data/augmentation API, metadata/experiment tracking, LoRA/adapters when verified against the architecture, dataset/consent provenance, checkpoint conversion and inference parity tests.
 
 Reference: https://github.com/kyutai-labs/pocket-tts/blob/v4.0.1/training/README.md
+
+## Reproducibility and authorization
+
+The launcher verifies the checkout HEAD equals Kyutai's `v4.0.1` commit `a922b912dfa366975294afb568d815b305acde5d`. This prevents silently executing a different upstream training implementation. Keep training data outside Git and obtain consent to use voice samples. Do not commit Hugging Face access tokens or voice data to this repository.
+
+In GitHub Actions, the separate gated model validation job requires repository secret `HF_TOKEN` with authorized read access and is only run via workflow dispatch, not on every public CI build. The token is never printed. The reduced-model CI job never exercises voice cloning.

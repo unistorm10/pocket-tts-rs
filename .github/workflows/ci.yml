@@ -14,8 +14,6 @@ concurrency:
 
 jobs:
   rust:
-    permissions:
-      contents: write
     name: Rust workspace (self-hosted Linux)
     runs-on: [self-hosted, linux]
     timeout-minutes: 90
@@ -40,20 +38,6 @@ jobs:
           cargo fmt --version
           cargo clippy --version
 
-      - name: Normalize Rust formatting and Cargo lockfile
-        if: github.ref == 'refs/heads/feat/standalone-v4-foundation'
-        run: |
-          set -euo pipefail
-          cargo fmt --all
-          cargo generate-lockfile
-          if ! git diff --quiet -- crates xtask Cargo.lock; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add crates xtask Cargo.lock
-            git commit -m "Format training crate and update Cargo lockfile"
-            git push origin HEAD:feat/standalone-v4-foundation
-          fi
-
       - name: Verify formatting
         run: cargo fmt --all -- --check
 
@@ -62,6 +46,18 @@ jobs:
 
       - name: Run Clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      - name: Checkout official Kyutai v4.0.1 trainer
+        uses: actions/checkout@v4
+        with:
+          repository: kyutai-labs/pocket-tts
+          ref: v4.0.1
+          path: upstream/kyutai-pocket-tts
+
+      - name: Verify pinned training launcher without running training
+        run: |
+          cargo run --locked -p pocket-tts-training -- \
+            --source upstream/kyutai-pocket-tts --recipe finetune
 
       - name: Download and inspect pinned public English 7M checkpoint
         run: cargo run --locked -p xtask -- prefetch english-7m --without-voice-cloning
@@ -84,4 +80,8 @@ jobs:
       - name: Authorized full English checkpoint
         run: |
           set -euo pipefail
+          if [[ -z "${HF_TOKEN:-}" ]]; then
+            echo "::error::HF_TOKEN is not configured. Accept the terms at https://huggingface.co/kyutai/pocket-tts and configure GitHub Actions secret HF_TOKEN."
+            exit 1
+          fi
           cargo run --locked -p xtask -- prefetch english
