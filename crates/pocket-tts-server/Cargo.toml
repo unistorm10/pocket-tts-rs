@@ -1,12 +1,45 @@
 [package]
 name = "pocket-tts-server"
+description = "Axum HTTP API server and embedded web UI for the pocket-tts Rust port."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+authors.workspace = true
+repository.workspace = true
+build = "build.rs"
+
+[features]
+default = ["web-ui"]
+web-ui = ["rust-embed", "mime_guess", "percent-encoding"]
+quantized = ["pocket-tts-model/quantized", "pocket-tts-core/quantized"]
+metal = ["pocket-tts-model/metal", "candle-core/metal"]
 
 [dependencies]
 pocket-tts-core = { path = "../pocket-tts-core" }
 pocket-tts-model = { path = "../pocket-tts-model" }
+
+candle-core = { workspace = true }
+
+anyhow = { workspace = true }
+clap = { workspace = true }
 axum = { workspace = true }
 tokio = { workspace = true }
-anyhow = { workspace = true }
+tokio-stream = { workspace = true }
+futures-util = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+base64 = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+owo-colors = { workspace = true }
+rust-embed = { workspace = true, optional = true }
+mime_guess = { workspace = true, optional = true }
+percent-encoding = { workspace = true, optional = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["full", "test-util"] }
+tower = { workspace = true, features = ["util"] }
+assert_cmd = { workspace = true }
+hound = { workspace = true }

@@ -1,18 +1,40 @@
 [package]
 name = "pocket-tts-core"
+description = "Shared primitives for the pocket-tts Rust port: streaming state, config, audio I/O, quantisation and the reusable neural-net building blocks (attention, conv, MLP, RoPE, transformer)."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[features]
+default = []
+metal = ["candle-core/metal", "candle-nn/metal"]
+mkl = ["candle-core/mkl", "candle-nn/mkl"]
+quantized = []
 
 [dependencies]
 candle-core = { workspace = true }
+candle-nn = { workspace = true }
+
 serde = { workspace = true }
 serde_yaml = { workspace = true }
 anyhow = { workspace = true }
 thiserror = { workspace = true }
+hound = { workspace = true }
+byteorder = { workspace = true }
+rubato = { workspace = true }
+
+# Only needed on real targets; the wasm build fetches weights in the browser.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 hf-hub = { workspace = true }
-reqwest = { workspace = true }
-sha2 = { workspace = true }
-dirs = { workspace = true }
+memmap2 = { workspace = true }
+
+[[bench]]
+name = "attention_bench"
+harness = false
 
 [dev-dependencies]
+criterion = { workspace = true }
+candle-core = { workspace = true }
+candle-nn = { workspace = true }

@@ -12,26 +12,74 @@ members = [
 
 [workspace.package]
 version = "0.1.0"
-edition = "2021"
-license = "MIT"
-repository = "https://github.com/kyutai-labs/pocket-tts"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+authors = ["Pocket TTS Contributors"]
+repository = "https://github.com/babybirdprd/pocket-tts"
 
 [workspace.dependencies]
-candle-core = "0.8"
-candle-nn = "0.8"
-safetensors = "0.4"
-serde = { version = "1", features = ["derive"] }
+# --- tensor / model runtime ---
+candle-core = "0.9.1"
+candle-nn = "0.9.1"
+candle-transformers = "0.9.1"
+safetensors = "0.5.2"
+memmap2 = "0.9"
+
+# --- weights / hub ---
+hf-hub = "0.4.3"
+
+# --- serialization ---
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 serde_yaml = "0.9"
-serde_json = "1"
-anyhow = "1"
-thiserror = "1"
-hf-hub = "0.3"
-reqwest = { version = "0.12", features = ["blocking"] }
-sha2 = "0.10"
-dirs = "5"
-tokio = { version = "1", features = ["full"] }
-axum = "0.7"
-clap = { version = "4", features = ["derive"] }
+
+# --- errors / logging ---
+anyhow = "1.0"
+thiserror = "2.0"
 tracing = "0.1"
-tracing-subscriber = "0.3"
-hound = "3"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# --- audio ---
+hound = "3.5"
+rubato = "0.14.1"
+byteorder = "1.5"
+
+# --- text / tokenization ---
+tokenizers = { version = "0.21.0", default-features = false }
+regex = "1"
+lenient_semver = "0.4.2"
+
+# --- numeric ---
+rand = "0.8"
+rand_distr = "0.4"
+rayon = "1.11.0"
+
+# --- cli / server ---
+clap = { version = "4.5", features = ["derive"] }
+axum = { version = "0.7", features = ["multipart"] }
+tokio = { version = "1.0", features = ["full"] }
+tokio-stream = "0.1"
+futures-util = "0.3"
+tower = { version = "0.4", features = ["util"] }
+tower-http = { version = "0.5", features = ["fs", "trace", "cors"] }
+base64 = "0.21"
+indicatif = "0.17"
+owo-colors = "4"
+rust-embed = "8"
+mime_guess = "2"
+percent-encoding = "2.3"
+
+# --- optional BLAS ---
+# MKL is pulled in by `candle-core/mkl` itself (the `mkl` feature on
+# candle-core depends on intel-mkl-src), so it does not need declaring here.
+
+# --- dev ---
+assert_cmd = "2.0"
+criterion = "0.8.1"
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+
+# NOTE: `panic = "abort"` is deliberately NOT set here. It is incompatible
+# with `cargo test` and `cargo bench`. Set it per-binary if you need it.

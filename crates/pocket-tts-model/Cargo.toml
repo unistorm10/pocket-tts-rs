@@ -1,11 +1,73 @@
 [package]
 name = "pocket-tts-model"
+description = "TTSModel orchestration for the pocket-tts Rust port: text chunking, voice cloning/state, streaming generation and the browser (wasm) bindings."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+# cdylib is required for the wasm build; rlib for normal Rust consumers.
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = []
+# The `wasm` module is compiled whenever the target is wasm32; this feature
+# exists so `--features wasm` is accepted (and matches the upstream CLI/docs)
+# rather than erroring with "package does not contain this feature".
+wasm = []
+quantized = ["pocket-tts-core/quantized"]
+metal = ["candle-core/metal", "candle-nn/metal"]
+mkl = ["candle-core/mkl", "candle-nn/mkl"]
 
 [dependencies]
 pocket-tts-core = { path = "../pocket-tts-core" }
+pocket-tts-mimi = { path = "../pocket-tts-mimi" }
+pocket-tts-flow = { path = "../pocket-tts-flow" }
+
 candle-core = { workspace = true }
 candle-nn = { workspace = true }
+
 anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+regex = { workspace = true }
+base64 = { workspace = true }
+hound = { workspace = true }
+byteorder = { workspace = true }
+rand = { workspace = true }
+rand_distr = { workspace = true }
+rayon = { workspace = true }
+tracing = { workspace = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# `tokenizers` itself is pulled in by `pocket-tts-flow`; the model crate uses
+# the conditioner through that crate rather than directly, so nothing to add.
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+web-sys = { version = "0.3", features = ["console"] }
+getrandom = { version = "0.3", features = ["wasm_js"] }
+getrandom_02 = { package = "getrandom", version = "0.2", features = ["js"] }
+console_error_panic_hook = "0.1"
+
+[dev-dependencies]
+criterion = { workspace = true }
+candle-core = { workspace = true }
+anyhow = { workspace = true }
+
+[[bench]]
+name = "full_benchmark"
+harness = false
+
+[[bench]]
+name = "streaming_bench"
+harness = false
+
+[[bench]]
+name = "voice_state_bench"
+harness = false

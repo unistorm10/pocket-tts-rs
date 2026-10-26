@@ -1,15 +1,36 @@
 [package]
 name = "pocket-tts-cli"
+description = "Command-line interface for the pocket-tts Rust port (generate / serve)."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+authors.workspace = true
+repository.workspace = true
 
-[[bin]]
-name = "pocket-tts"
-path = "src/main.rs"
+# The binary keeps its default name (`pocket-tts-cli`, from the package name).
+# The clap `name` in src/main.rs is "pocket-tts", so `--help`/usage show
+# `pocket-tts`. The Dockerfile installs it as /usr/local/bin/pocket-tts.
+[lib]
+name = "pocket_tts_cli"
+path = "src/lib.rs"
+
+[features]
+default = []
+quantized = ["pocket-tts-model/quantized", "pocket-tts-server/quantized"]
+metal = ["pocket-tts-model/metal", "pocket-tts-server/metal"]
 
 [dependencies]
 pocket-tts-core = { path = "../pocket-tts-core" }
 pocket-tts-model = { path = "../pocket-tts-model" }
+pocket-tts-server = { path = "../pocket-tts-server", default-features = false }
+
 clap = { workspace = true }
 anyhow = { workspace = true }
+tokio = { workspace = true }
+indicatif = { workspace = true }
+owo-colors = { workspace = true }
+candle-core = { workspace = true }
+
+[dev-dependencies]
+assert_cmd = { workspace = true }
+hound = { workspace = true }

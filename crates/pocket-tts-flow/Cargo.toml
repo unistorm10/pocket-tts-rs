@@ -1,11 +1,23 @@
 [package]
 name = "pocket-tts-flow"
+description = "FlowLM transformer and flow-matching (LSD) decoder plus the text conditioner for the pocket-tts Rust port."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+authors.workspace = true
+repository.workspace = true
 
 [dependencies]
 pocket-tts-core = { path = "../pocket-tts-core" }
 candle-core = { workspace = true }
 candle-nn = { workspace = true }
+# `fancy-regex` is the pure-Rust regex backend, which is what the wasm build
+# must use (`onig` is a C library and cannot be compiled for wasm32).
+tokenizers = { workspace = true, features = ["fancy-regex"] }
+rand = { workspace = true }
+rand_distr = { workspace = true }
 anyhow = { workspace = true }
+
+# On native targets prefer the faster Oniguruma-backed tokenizer.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tokenizers = { workspace = true, features = ["onig", "fancy-regex"] }
