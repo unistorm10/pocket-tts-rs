@@ -239,6 +239,50 @@ pub fn inspect_wav(path: &Path) -> Result<GeneratedAudio> {
 mod tests {
     use super::*;
 
+    // Compile-time and dynamic-dispatch coverage for backend-swappable streaming.
+    struct MockStreamingEngine;
+
+    impl SynthesisEngine for MockStreamingEngine {
+        fn synthesize_wav(&self, _request: &SynthesisRequest, _output: &Path) -> Result<GeneratedAudio> {
+            anyhow::bail!("mock only supports streaming")
+        }
+    }
+
+    impl StreamingSynthesisEngine for MockStreamingEngine {
+        fn stream_wav(
+            &self,
+            _request: &SynthesisRequest,
+            on_bytes: &mut dyn FnMut(&[u8]) -> Result<()>,
+        ) -> Result<StreamTiming> {
+            on_bytes(b"RIFF")?;
+            on_bytes(b"WAVE")?;
+            Ok(StreamTiming {
+                headers: std::time::Duration::ZERO,
+                first_pcm: std::time::Duration::ZERO,
+                total: std::time::Duration::ZERO,
+                received_bytes: 8,
+            })
+        }
+    }
+
+    #[test]
+    fn streaming_contract_supports_dyn_dispatch_and_ordered_chunks() {
+        let engine: &dyn StreamingSynthesisEngine = &MockStreamingEngine;
+        let request = SynthesisRequest {
+            text: "test".into(), language: "english".into(),
+            voice: Voice::Preset("alba".into()), quantize: false,
+        };
+        let mut bytes = Vec::new();
+        let timing = engine.stream_wav(&request, &mut |chunk| {
+            bytes.extend_from_slice(chunk);
+            Ok(())
+        }).unwrap();
+        assert_eq!(bytes, b"RIFFWAVE");
+        assert_eq!(timing.received_bytes, bytes.len() as u64);
+        let err = engine.stream_wav(&request, &mut |_chunk| anyhow::bail!("stop"));
+        assert!(err.is_err(), "callback errors must propagate to caller");
+    }
+
     #[test]
     fn invalid_requests_fail_before_invoking_backend() {
         let r = SynthesisRequest {
