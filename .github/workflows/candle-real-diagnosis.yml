@@ -130,6 +130,38 @@ jobs:
             echo "::error::Candle produced $errors unintelligible/invalid outputs out of 3; see per-model quality JSON. PCM alone is not accepted."
             exit 1
           fi
+      - name: Generalization check with unseen sentences and independent ASR
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/candle-real-diagnosis"
+          binary="$HOME/.cache/pocket_tts_rs_candle_candidate_target/release/examples/candle_v4_probe"
+          venv="$HOME/.cache/pocket_tts_rs_audio_qa_venv"
+          errors=0
+          for variant in probe-english probe-7m probe-18m; do
+            for sample in 1 2; do
+              if [[ "$sample" = 1 ]]; then
+                phrase="The museum opens early on Saturday so we can arrive before the crowds."
+              else
+                phrase="Please put the blue notebook beside the old wooden table."
+              fi
+              output="$root/${variant}-generalization-${sample}.wav"
+              echo "CANDLE_GENERALIZATION model=$variant prompt=$sample"
+              "$binary" "$variant" "$output" "$phrase" > /dev/null \
+                2> "$root/${variant}-generalization-${sample}.log" || {
+                errors=$((errors + 1))
+                continue
+              }
+              "$venv/bin/python" benchmarks/audio_qa.py \
+                --wav "$output" \
+                --output "$root/${variant}-generalization-${sample}.quality.json" \
+                --expected-text "$phrase" \
+                --asr-model "small.en" --threads 4 --max-wer 0.35 || errors=$((errors + 1))
+            done
+          done
+          if (( errors > 0 )); then
+            echo "::error::$errors real Candle generalization trials failed intelligibility or synthesis"
+            exit 1
+          fi
       - name: Save diagnosis only, never model weights or generated speech
         if: always()
         uses: actions/upload-artifact@v4

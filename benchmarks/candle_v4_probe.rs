@@ -9,6 +9,9 @@ fn main() -> Result<()> {
     let mut args = std::env::args().skip(1);
     let variant = args.next().context("missing model variant")?;
     let output = PathBuf::from(args.next().context("missing output WAV path")?);
+    let utterance = args.next().unwrap_or_else(|| {
+        "Testing real Candle synthesis with a cloned voice.".to_owned()
+    });
     let start = std::time::Instant::now();
     eprintln!("CANDLE_ATTEMPT {variant}");
     // The community port's older defaults (temperature=.7, EOS=-4)
@@ -30,7 +33,7 @@ fn main() -> Result<()> {
     )?;
     let voice = model.get_voice_state(&path).context("CANDLE_VOICE_ENCODER_FAILURE")?;
     let audio = model
-        .generate("Testing real Candle synthesis with a cloned voice.", &voice)
+        .generate(&utterance, &voice)
         .context("CANDLE_SYNTHESIS_FAILURE")?;
     pocket_tts::audio::write_wav(&output, &audio, model.sample_rate as u32)?;
     eprintln!("CANDLE_REAL_AUDIO {} elapsed_ms={:.1}", output.display(), start.elapsed().as_secs_f64()*1000.0);
