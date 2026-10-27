@@ -16,7 +16,7 @@ use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 use std::sync::Mutex;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 /// A model loaded once and reused across generations, with reference-voice
 /// caching only for stable URL-based conditioning. Local files are re-encoded
@@ -213,6 +213,5 @@ mod tests {
         fn requires_engine<T: StreamingSynthesisEngine + SynthesisEngine>() {}
         requires_engine::<CandleInProcess>();
         // This is a structural test, not a claim to load gated weights.
-        let _ = std::mem::size_of::<Duration>();
     }
 }
