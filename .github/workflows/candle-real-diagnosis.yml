@@ -144,10 +144,22 @@ jobs:
           venv="$HOME/.cache/pocket_tts_rs_audio_qa_venv"
           # Speaker-quality evaluation is isolated from Rust inference.
           # Fetch CPU-only PyTorch wheels, avoiding GPU/CUDA dependencies.
+          # SpeechBrain 1.0.3 calls torchaudio.list_audio_backends();
+          # that API was removed in newer torchaudio builds. Use a
+          # version-matched CPU-only pair where the API still exists.
           uv pip install --python "$venv/bin/python" \
-            --index-url https://download.pytorch.org/whl/cpu torch torchaudio
+            --index-url https://download.pytorch.org/whl/cpu \
+            "torch==2.7.1" "torchaudio==2.7.1"
           uv pip install --python "$venv/bin/python" \
             "speechbrain==1.0.3" "huggingface_hub>=0.30,<1"
+          "$venv/bin/python" - <<'PY'
+          import torch, torchaudio
+          from speechbrain.inference.speaker import SpeakerRecognition
+          assert torch.__version__.split("+")[0] == "2.7.1"
+          assert torchaudio.__version__.split("+")[0] == "2.7.1"
+          assert hasattr(torchaudio, "list_audio_backends")
+          print("Speaker verification environment ready")
+          PY
           root="$RUNNER_TEMP/candle-real-diagnosis"
           failures=0
           for variant in probe-english probe-7m probe-18m; do
