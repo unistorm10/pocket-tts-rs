@@ -5,7 +5,9 @@
 //! the executable. The native Candle implementation will use this same host
 //! interface once checkpoint parity is established.
 
-use crate::{inspect_wav, GeneratedAudio, StreamingSynthesisEngine, SynthesisEngine, SynthesisRequest, Voice};
+use crate::{
+    inspect_wav, GeneratedAudio, StreamingSynthesisEngine, SynthesisEngine, SynthesisRequest, Voice,
+};
 use anyhow::{bail, Context, Result};
 use reqwest::blocking::{multipart, Client};
 use std::fs::{File, OpenOptions};
