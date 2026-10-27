@@ -5,7 +5,7 @@
 //! the executable. The native Candle implementation will use this same host
 //! interface once checkpoint parity is established.
 
-use crate::{inspect_wav, GeneratedAudio, SynthesisEngine, SynthesisRequest, Voice};
+use crate::{inspect_wav, GeneratedAudio, StreamingSynthesisEngine, SynthesisEngine, SynthesisRequest, Voice};
 use anyhow::{bail, Context, Result};
 use reqwest::blocking::{multipart, Client};
 use std::fs::{File, OpenOptions};
@@ -308,6 +308,17 @@ impl ResidentRustServer {
 
     fn is_quantized(&self) -> bool {
         self.quantize
+    }
+}
+
+impl StreamingSynthesisEngine for ResidentRustServer {
+    fn stream_wav(
+        &self,
+        request: &SynthesisRequest,
+        on_bytes: &mut dyn FnMut(&[u8]) -> Result<()>,
+    ) -> Result<StreamTiming> {
+        // Use the existing incremental reader rather than buffering the WAV.
+        ResidentRustServer::stream_wav(self, request, |chunk| on_bytes(chunk))
     }
 }
 
