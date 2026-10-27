@@ -177,13 +177,14 @@ jobs:
           for variant in probe-english probe-7m probe-18m; do
             "$venv/bin/python" benchmarks/speaker_qa.py \
               --generated "$root/$variant.wav" \
-              --output "$root/$variant.speaker.json" || failures=$((failures + 1))
+              --output "$root/$variant.speaker.json" \
+              --require-control-ranking || failures=$((failures + 1))
           done
           if (( failures > 0 )); then
             echo "::error::$failures speaker embedding analyses failed; speaker fidelity remains UNVERIFIED"
             exit 1
           fi
-          echo "Speaker diagnostics generated; no production threshold has been calibrated."
+          echo "Speaker control rankings passed; production similarity threshold and perceptual naturalness remain uncalibrated."
       - name: Save diagnosis only, never model weights or generated speech
         if: always()
         uses: actions/upload-artifact@v4
