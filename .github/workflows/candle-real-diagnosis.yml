@@ -138,6 +138,28 @@ jobs:
             echo "::error::$errors real Candle generalization trials failed intelligibility or synthesis"
             exit 1
           fi
+      - name: Build in-process Candle adapter against the audited patched source
+        run: |
+          set -euo pipefail
+          mkdir -p integrations/candle-inprocess/vendor
+          ln -s "$UPSTREAM_CANDLE" integrations/candle-inprocess/vendor/pocket-tts
+          export CARGO_TARGET_DIR="$HOME/.cache/pocket_tts_rs_candle_adapter_target"
+          cargo fmt --manifest-path integrations/candle-inprocess/Cargo.toml --all
+          cargo test --manifest-path integrations/candle-inprocess/Cargo.toml
+          cargo build --release --manifest-path integrations/candle-inprocess/Cargo.toml --bin probe
+      - name: Real in-process Candle inference and independent speech check
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/candle-real-diagnosis"
+          binary="$HOME/.cache/pocket_tts_rs_candle_adapter_target/release/probe"
+          "$binary" probe-english "$root/inprocess-english.wav" \
+            "Testing real Candle synthesis with a cloned voice."
+          venv="$HOME/.cache/pocket_tts_rs_audio_qa_venv"
+          "$venv/bin/python" benchmarks/audio_qa.py \
+            --wav "$root/inprocess-english.wav" \
+            --output "$root/inprocess-english.quality.json" \
+            --expected-text "Testing real Candle synthesis with a cloned voice." \
+            --asr-model "small.en" --threads 4 --max-wer 0.35
       - name: Independently assess cloned speaker similarity
         run: |
           set -euo pipefail
