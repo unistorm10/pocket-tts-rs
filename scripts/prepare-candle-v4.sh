@@ -11,6 +11,7 @@ if [[ -e "$dest" ]]; then
   echo "destination already exists: $dest" >&2
   exit 2
 fi
+mkdir -p "$(dirname "$dest")"
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 pinned="dbf78c816cd83c89f11dbeb9d87290ad0a3dccd0"
 git clone --quiet https://github.com/stepupgaming/pocket-tts.git "$dest"
