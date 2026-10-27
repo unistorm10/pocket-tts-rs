@@ -162,6 +162,29 @@ jobs:
             echo "::error::$errors real Candle generalization trials failed intelligibility or synthesis"
             exit 1
           fi
+      - name: Independently assess cloned speaker similarity
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          venv="$HOME/.cache/pocket_tts_rs_audio_qa_venv"
+          # Speaker-quality evaluation is isolated from Rust inference.
+          # Fetch CPU-only PyTorch wheels, avoiding GPU/CUDA dependencies.
+          uv pip install --python "$venv/bin/python" \
+            --index-url https://download.pytorch.org/whl/cpu torch torchaudio
+          uv pip install --python "$venv/bin/python" \
+            "speechbrain==1.0.3" "huggingface_hub>=0.30,<1"
+          root="$RUNNER_TEMP/candle-real-diagnosis"
+          failures=0
+          for variant in probe-english probe-7m probe-18m; do
+            "$venv/bin/python" benchmarks/speaker_qa.py \
+              --generated "$root/$variant.wav" \
+              --output "$root/$variant.speaker.json" || failures=$((failures + 1))
+          done
+          if (( failures > 0 )); then
+            echo "::warning::$failures speaker embedding analyses failed; speaker fidelity remains UNVERIFIED"
+            exit 1
+          fi
+          echo "Speaker diagnostics generated; no production threshold has been calibrated."
       - name: Save diagnosis only, never model weights or generated speech
         if: always()
         uses: actions/upload-artifact@v4
@@ -171,5 +194,6 @@ jobs:
             ${{ runner.temp }}/candle-real-diagnosis/results.tsv
             ${{ runner.temp }}/candle-real-diagnosis/*.log
             ${{ runner.temp }}/candle-real-diagnosis/*.quality.json
+            ${{ runner.temp }}/candle-real-diagnosis/*.speaker.json
           if-no-files-found: warn
           retention-days: 30
