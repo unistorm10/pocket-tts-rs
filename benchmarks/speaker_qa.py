@@ -37,6 +37,8 @@ def main() -> None:
                         help="Optional locally recorded reference with consent")
     parser.add_argument("--positive-control", type=Path, default=None)
     parser.add_argument("--negative-control", type=Path, default=None)
+    parser.add_argument("--require-control-ranking", action="store_true",
+                        help="Fail when the independent same-speaker control is not above the impostor")
     args = parser.parse_args()
     if not args.generated.is_file():
         parser.error("the generated WAV file must exist")
@@ -104,12 +106,16 @@ def main() -> None:
         }
         report["similarity"] = {k: round(v, 6) for k, v in comparisons.items()}
         report["completed"] = True
+        if args.require_control_ranking and not all(report["control_ranking"].values()):
+            report["control_rankings_passed"] = False
+        else:
+            report["control_rankings_passed"] = all(report["control_ranking"].values())
     except Exception as exc:
         report["completed"] = False
         report["error"] = str(exc)
     args.output.write_text(json.dumps(report, indent=2)+"\n")
     print(json.dumps(report, indent=2), flush=True)
-    if not report["completed"]:
+    if not report["completed"] or (args.require_control_ranking and not report.get("control_rankings_passed", False)):
         raise SystemExit(1)
 
 if __name__ == "__main__":
