@@ -87,6 +87,19 @@ pub trait SynthesisEngine {
     fn synthesize_wav(&self, request: &SynthesisRequest, output: &Path) -> Result<GeneratedAudio>;
 }
 
+/// Backend-independent incremental audio output. The callback receives chunks
+/// in order, and errors abort synthesis. Implementations must not silently
+/// replace genuine streamed audio with a buffered, post-generation replay.
+/// WAV transports may include an initially provisional length header; callers
+/// persisting WAV files must finalize it after the stream completes.
+pub trait StreamingSynthesisEngine: SynthesisEngine {
+    fn stream_wav(
+        &self,
+        request: &SynthesisRequest,
+        on_bytes: &mut dyn FnMut(&[u8]) -> Result<()>,
+    ) -> Result<StreamTiming>;
+}
+
 /// Temporary native-Rust reference execution backend: Kyutai's v4.0.1 Rust
 /// binary (XN/ptts). Unlike a Python/ONNX bridge, this is the upstream Rust
 /// engine, but it launches a process per request. This is NOT the final
