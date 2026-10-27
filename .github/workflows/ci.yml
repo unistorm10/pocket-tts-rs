@@ -38,6 +38,9 @@ jobs:
           cargo fmt --version
           cargo clippy --version
 
+      - name: Validate reproducible Candle source preparation script
+        run: bash -n scripts/prepare-candle-v4.sh
+
       - name: Verify formatting
         run: cargo fmt --all -- --check
 
