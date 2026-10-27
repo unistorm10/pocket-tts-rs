@@ -30,6 +30,10 @@ This plan supersedes the prior port-every-layer-from-Python phases in
 - Both expensive gated inference workflows are now manual-only and normal CI read-only.
 
 ## Milestone B: reuse the existing Candle implementation
+
+**First functional milestone verified.** All three official encoder-enabled English checkpoints synthesize independently ASR-recognized speech through the patched, pinned existing Candle implementation. [Verified run](https://github.com/unistorm10/pocket-tts-rs/actions/runs/40423058073): full English WER 0.125, 7M WER 0, 18M REFL WER 0, with actual reference-audio voice encoding. The learned v4 `bos_before_voice` embedding restored correct output. This is not yet an in-process Candle implementation in `pocket-tts-model`, and speaker similarity, diverse texts and training are still gates.
+
+
 1. Pin a reviewed `stepupgaming/pocket-tts` commit and save license notices.
 2. Adapt its neural modules (`SEANet`, `Mimi`, `FlowLM`, attention/KV, text) into our backend under a `candle` feature. Prefer reusing upstream code to retyping it.
 3. Handle Kyutai October 2026 config deltas: `attn_dim`, `num_kv_heads`, `rank`, `z_dim`, `decoder_seanet`/`decoder_transformer`, EOS and flow variants.

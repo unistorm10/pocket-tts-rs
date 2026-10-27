@@ -38,3 +38,11 @@ git clone https://github.com/stepupgaming/pocket-tts.git /tmp/pocket-candle
 git -C /tmp/pocket-candle checkout dbf78c816cd83c89f11dbeb9d87290ad0a3dccd0
 cargo check --locked --manifest-path /tmp/pocket-candle/Cargo.toml -p pocket-tts
 ```
+
+## Intelligibility breakthrough: 2026-10-26
+
+[Run #40423058073](https://github.com/unistorm10/pocket-tts-rs/actions/runs/40423058073) succeeded with all three official full-checkpoint models using the targeted [voice BOS prefix patch](../patches/candle/0009_voice_bos_prefix.py). This patch loads `flow_lm.bos_before_voice` from the real weights and prepends its learned embedding to the Mimi reference-voice conditioning, exactly as Kyutai v4.0.1 requires. It was a **numerical input mismatch**, not merely an invalid WAV container.
+
+Without this prefix, [ASR run #40413121850](https://github.com/unistorm10/pocket-tts-rs/actions/runs/40413121850) yielded WER 14.0 / 1.0 / 1.0 for default English, 7M and 18M REFL respectively. With the patch, the same reference audio, sentence and independent Whisper `small.en` recognizer produced WER **0.125 / 0.0 / 0.0**. The established Kyutai native Rust/XN control scored **0 WER**. This is an independently measured functional advance, but do not interpret one sentence as complete quality parity.
+
+The next gates require multiple unseen utterances, speaker identity embeddings against positive/negative speaker controls, repeated streaming sessions and hardware-specific TTFA/RTF. The existing 288-trial XN benchmark cannot be copied as Candle performance; run a separate native Candle benchmark.

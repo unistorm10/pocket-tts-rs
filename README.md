@@ -10,6 +10,38 @@ The engine is completely independent of SOMA and Phonation. Phonation may integr
 
 Existing Rust engines have already implemented much of Pocket TTS. Before adding more new FlowLM/Mimi/Candle code, compare Kyutai's official v4.0.1 Rust/XN runtime and the substantial community Candle port. The [Rust implementation audit](docs/RUST_IMPLEMENTATION_AUDIT.md) records the candidate repositories, licenses, version gaps and required real-weight acceptance tests. It supersedes any older port-every-module-from-Python assumptions in the implementation plan.
 
+## Verified full-model Candle speech baseline (2026-10-26)
+
+**All three authenticated voice-cloning checkpoints now produce intelligible
+24-kHz speech through native Candle inference**, using the audited community
+FlowLM/Mimi modules plus targeted 2026 compatibility patches. The crucial fix
+was to **load and prepend the real learned `flow_lm.bos_before_voice`
+parameter during voice-reference conditioning**. Prior WAV-only runs generated
+audio that independent ASR could not recognize.
+
+[Successful real-model/ASR CI run](https://github.com/unistorm10/pocket-tts-rs/actions/runs/40423058073)
+verified the sentence "Testing real Candle synthesis with a cloned voice.":
+
+| Gated model | Independent ASR WER | CER |
+| --- | ---: | ---: |
+| English ~100M | 0.125 | 0.0238 |
+| English 7M | 0 | 0 |
+| English 18M REFL | 0 | 0 |
+
+The full English model had a single "cloned" vs "clone" word error.
+For comparison, the same text and voice through the official
+[Kyutai Rust/XN engine](https://github.com/unistorm10/pocket-tts-rs/actions/runs/40421488301)
+achieved **0 WER and 0 CER**. The Candle result uses actual Mimi reference
+voice encoding, not an encoder-disabled checkpoint or a substitute preset.
+
+**Scope of the gate:** actual weight loading, reference-audio encoding,
+genuine waveform synthesis, PCM integrity, independent Whisper ASR.
+**Not yet established:** speaker embedding similarity, perceptual quality,
+consistent multi-utterance performance, fully in-process integration into
+`pocket-tts-model`, production-grade streaming and real training execution.
+The verified Candle code currently runs as a patched, revision-pinned community
+checkout in CI, not a complete embedded backend of this workspace.
+
 ## Performance benchmarks
 
 The combined [288-trial report](docs/RESULTS_2026-10-26.md) includes a **144-trial warm resident-model HTTP benchmark** ([data](https://github.com/unistorm10/pocket-tts-rs/actions/runs/40380071569/artifacts/12677703174)) and the full [144-trial fresh-process benchmark](https://github.com/unistorm10/pocket-tts-rs/actions/runs/40377493188) passed against all three gated English models. The [raw metrics artifact](https://github.com/unistorm10/pocket-tts-rs/actions/runs/40377493188/artifacts/12677901806) includes streaming first-audio timing, end-to-end/model-only RTF, peak RSS, FP32/INT8 and voice-preparation costs. At 4 CPU threads FP32 with preset voice, median first audio was **376 ms (English), 139 ms (18M REFL), 104 ms (7M)**. Fresh reference audio required **1.6–1.9 seconds** before first audible PCM. The resident-model HTTP benchmark establishes warm model and cached-voice performance; the runnable standalone resident adapter is now integrated and validated. See [benchmark methods](docs/BENCHMARKING.md).
