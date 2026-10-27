@@ -1,0 +1,17 @@
+[package]
+name = "pocket-tts-candle-inprocess"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "MIT"
+description = "Experimental direct Candle Pocket TTS engine, kept isolated until validated"
+
+# Separate workspace until the patched Candle dependency has been fully
+# vendored and validated; must not change the root workspace Cargo.lock.
+[workspace]
+resolver = "2"
+
+[dependencies]
+anyhow = "1"
+pocket-tts-model = { path = "../../crates/pocket-tts-model" }
+pocket-tts = { path = "vendor/pocket-tts/crates/pocket-tts" }
