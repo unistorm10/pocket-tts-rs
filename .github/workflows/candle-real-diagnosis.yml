@@ -163,7 +163,6 @@ jobs:
             exit 1
           fi
       - name: Independently assess cloned speaker similarity
-        continue-on-error: true
         run: |
           set -euo pipefail
           venv="$HOME/.cache/pocket_tts_rs_audio_qa_venv"
@@ -181,7 +180,7 @@ jobs:
               --output "$root/$variant.speaker.json" || failures=$((failures + 1))
           done
           if (( failures > 0 )); then
-            echo "::warning::$failures speaker embedding analyses failed; speaker fidelity remains UNVERIFIED"
+            echo "::error::$failures speaker embedding analyses failed; speaker fidelity remains UNVERIFIED"
             exit 1
           fi
           echo "Speaker diagnostics generated; no production threshold has been calibrated."
