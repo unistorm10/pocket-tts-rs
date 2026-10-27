@@ -44,6 +44,9 @@ jobs:
       - name: Run workspace tests
         run: cargo test --workspace --all-targets --locked
 
+      - name: Regression-test independent speech-quality acceptance
+        run: python3 -m unittest discover -s benchmarks -p 'test_audio_qa.py' -v
+
       - name: Run Clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
