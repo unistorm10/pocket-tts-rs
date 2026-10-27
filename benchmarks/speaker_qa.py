@@ -70,6 +70,7 @@ def main() -> None:
         )
         comparisons = {
             "generated_vs_reference": speaker_score(classifier, args.generated, ref),
+            "generated_vs_other_same_speaker": speaker_score(classifier, args.generated, pos),
             "reference_vs_other_same_speaker": speaker_score(classifier, ref, pos),
             "reference_vs_different_speaker": speaker_score(classifier, ref, neg),
             "generated_vs_different_speaker": speaker_score(classifier, args.generated, neg),
@@ -78,6 +79,29 @@ def main() -> None:
             comparisons["generated_vs_reference"] -
             comparisons["reference_vs_different_speaker"]
         )
+        comparisons["generated_margin_over_impostor"] = (
+            comparisons["generated_vs_reference"] -
+            comparisons["generated_vs_different_speaker"]
+        )
+        comparisons["generated_positive_margin_over_impostor"] = (
+            comparisons["generated_vs_other_same_speaker"] -
+            comparisons["generated_vs_different_speaker"]
+        )
+        # Diagnostic sanity flags are not calibrated production thresholds.
+        report["control_ranking"] = {
+            "reference_positive_above_negative": (
+                comparisons["reference_vs_other_same_speaker"] >
+                comparisons["reference_vs_different_speaker"]
+            ),
+            "generated_reference_above_negative": (
+                comparisons["generated_vs_reference"] >
+                comparisons["generated_vs_different_speaker"]
+            ),
+            "generated_other_same_above_negative": (
+                comparisons["generated_vs_other_same_speaker"] >
+                comparisons["generated_vs_different_speaker"]
+            ),
+        }
         report["similarity"] = {k: round(v, 6) for k, v in comparisons.items()}
         report["completed"] = True
     except Exception as exc:
