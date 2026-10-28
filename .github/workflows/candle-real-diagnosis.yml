@@ -31,6 +31,14 @@ jobs:
           target="/tmp/pocket-candle-${GITHUB_RUN_ID}"
           bash scripts/prepare-candle-v4.sh "$target"
           echo "UPSTREAM_CANDLE=$target" >> "$GITHUB_ENV"
+      - name: Preflight in-process Candle workspace before expensive inference
+        run: |
+          set -euo pipefail
+          bash scripts/attach-candle-inprocess.sh "$UPSTREAM_CANDLE" \
+            integrations/candle-inprocess/vendor/pocket-tts
+          cargo metadata --format-version 1 --no-deps \
+            --manifest-path integrations/candle-inprocess/Cargo.toml > /dev/null
+          cargo fmt --manifest-path integrations/candle-inprocess/Cargo.toml --all -- --check
       - name: Compile actual upstream Candle FlowLM and Mimi inference example
         run: |
           set -euo pipefail
@@ -141,14 +149,7 @@ jobs:
       - name: Build in-process Candle adapter against the audited patched source
         run: |
           set -euo pipefail
-          # Nested path dependencies otherwise inherit the outer Cargo workspace.
-          # Explicitly anchor the patched Candle crate to its original workspace.
-          bash scripts/attach-candle-inprocess.sh "$UPSTREAM_CANDLE" \
-            integrations/candle-inprocess/vendor/pocket-tts
           export CARGO_TARGET_DIR="$HOME/.cache/pocket_tts_rs_candle_adapter_target"
-          cargo metadata --format-version 1 --no-deps \
-            --manifest-path integrations/candle-inprocess/Cargo.toml > /dev/null
-          cargo fmt --manifest-path integrations/candle-inprocess/Cargo.toml --all -- --check
           cargo test --manifest-path integrations/candle-inprocess/Cargo.toml
           cargo build --release --manifest-path integrations/candle-inprocess/Cargo.toml --bin probe
       - name: Real in-process Candle inference and independent speech check
