@@ -60,13 +60,17 @@ impl CandleInProcess {
             ),
             Voice::HubAudio(url) => Some(url.as_str()),
             Voice::ReferenceAudio(path) => {
-                return self.model.get_voice_state(path)
+                return self
+                    .model
+                    .get_voice_state(path)
                     .with_context(|| format!("encoding local speaker WAV {}", path.display()));
             }
             Voice::State(path) => {
                 let bytes = std::fs::read(path)
                     .with_context(|| format!("reading voice state {}", path.display()))?;
-                return self.model.get_voice_state_from_prompt_bytes(&bytes)
+                return self
+                    .model
+                    .get_voice_state_from_prompt_bytes(&bytes)
                     .context("loading a full voice-conditioning audio_prompt tensor");
             }
         };
@@ -82,7 +86,9 @@ impl CandleInProcess {
         }
         let path = weights::download_if_necessary(key)
             .with_context(|| format!("resolving voice reference {key}"))?;
-        let state = self.model.get_voice_state(&path)
+        let state = self
+            .model
+            .get_voice_state(&path)
             .context("encoding reference audio through full Mimi encoder")?;
         self.stable_voice_cache
             .lock()
@@ -93,8 +99,14 @@ impl CandleInProcess {
 
     fn validate(&self, request: &SynthesisRequest) -> Result<()> {
         request.validate()?;
-        ensure!(request.language == "english", "Candle checkpoint is English-only");
-        ensure!(!request.quantize, "Candle quantization is not yet validated; refusing requested quantization");
+        ensure!(
+            request.language == "english",
+            "Candle checkpoint is English-only"
+        );
+        ensure!(
+            !request.quantize,
+            "Candle quantization is not yet validated; refusing requested quantization"
+        );
         Ok(())
     }
 }
@@ -136,7 +148,10 @@ impl StreamingSynthesisEngine for CandleInProcess {
         for next in self.model.generate_stream(&request.text, &voice) {
             let tensor = next.context("Candle streaming inference failed")?;
             let (batch, channels, _) = tensor.dims3()?;
-            ensure!(batch == 1 && channels == 1, "Candle returned non-mono audio");
+            ensure!(
+                batch == 1 && channels == 1,
+                "Candle returned non-mono audio"
+            );
             let pcm = audio::pcm_i16_le_bytes(&tensor.squeeze(0)?)?;
             if pcm.is_empty() {
                 continue;
@@ -145,7 +160,10 @@ impl StreamingSynthesisEngine for CandleInProcess {
             let new_total = received_bytes
                 .checked_add(pcm.len() as u64)
                 .context("streamed WAV size overflow")?;
-            ensure!(new_total <= u64::from(u32::MAX), "WAV exceeds RIFF size limit");
+            ensure!(
+                new_total <= u64::from(u32::MAX),
+                "WAV exceeds RIFF size limit"
+            );
             if first_pcm.is_none() {
                 first_pcm = Some(start.elapsed());
             }
@@ -165,11 +183,16 @@ impl StreamingSynthesisEngine for CandleInProcess {
 impl SynthesisEngine for CandleInProcess {
     fn synthesize_wav(&self, request: &SynthesisRequest, output: &Path) -> Result<GeneratedAudio> {
         self.validate(request)?;
-        ensure!(output.extension().and_then(|v| v.to_str()) == Some("wav"),
-            "output must be .wav");
+        ensure!(
+            output.extension().and_then(|v| v.to_str()) == Some("wav"),
+            "output must be .wav"
+        );
         let parent = output.parent().unwrap_or_else(|| Path::new("."));
-        ensure!(parent.as_os_str().is_empty() || parent.is_dir(),
-            "output directory does not exist: {}", parent.display());
+        ensure!(
+            parent.as_os_str().is_empty() || parent.is_dir(),
+            "output directory does not exist: {}",
+            parent.display()
+        );
         let mut writer = File::create(output).context("creating Candle WAV")?;
         let result = self.stream_wav(request, &mut |bytes| {
             writer.write_all(bytes).context("writing Candle PCM stream")
@@ -185,8 +208,8 @@ impl SynthesisEngine for CandleInProcess {
             return Err(error.into());
         }
         drop(writer);
-        let output_result = finalize_streamed_wav(output)
-            .and_then(|()| pocket_tts_model::inspect_wav(output));
+        let output_result =
+            finalize_streamed_wav(output).and_then(|()| pocket_tts_model::inspect_wav(output));
         if output_result.is_err() {
             let _ = std::fs::remove_file(output);
         }
