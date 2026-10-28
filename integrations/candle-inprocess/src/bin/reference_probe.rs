@@ -14,11 +14,16 @@ const PROMPTS: [&str; 2] = [
 
 fn main() -> Result<()> {
     let mut args = std::env::args().skip(1);
-    let variant = args.next().context("usage: reference_probe VARIANT SPEECH_DIR OUTPUT_DIR")?;
+    let variant = args
+        .next()
+        .context("usage: reference_probe VARIANT SPEECH_DIR OUTPUT_DIR")?;
     let speech_dir = PathBuf::from(args.next().context("missing private speech directory")?);
     let output_dir = PathBuf::from(args.next().context("missing output directory")?);
     ensure!(args.next().is_none(), "unexpected extra arguments");
-    ensure!(speech_dir.is_dir() && output_dir.is_dir(), "input and output directories must exist");
+    ensure!(
+        speech_dir.is_dir() && output_dir.is_dir(),
+        "input and output directories must exist"
+    );
     // All five known examples are required. No implicit speaker identity is
     // assigned from the numbering, and we do not log private transcripts.
     for id in 1..=5 {
@@ -27,8 +32,14 @@ fn main() -> Result<()> {
         let transcript = speech_dir.join(format!("{stem}.txt"));
         ensure!(reference.is_file(), "reference audio missing for {stem}");
         ensure!(transcript.is_file(), "reference transcript missing for {stem}");
-        ensure!(!std::fs::read_to_string(&transcript)?.trim().is_empty(), "empty reference transcript for {stem}");
-        ensure!(std::fs::metadata(&reference)?.len() > 44, "empty reference audio for {stem}");
+        ensure!(
+            !std::fs::read_to_string(&transcript)?.trim().is_empty(),
+            "empty reference transcript for {stem}"
+        );
+        ensure!(
+            std::fs::metadata(&reference)?.len() > 44,
+            "empty reference audio for {stem}"
+        );
     }
     let started = Instant::now();
     let engine = CandleInProcess::load(&variant)?;
@@ -48,12 +59,15 @@ fn main() -> Result<()> {
                 quantize: false,
             };
             let t = Instant::now();
-            let audio = engine
-                .synthesize_wav(&request, &output)
-                .with_context(|| format!("in-process cloning failed for {stem} prompt {prompt_id}"))?;
+            let audio = engine.synthesize_wav(&request, &output).with_context(|| {
+                format!("in-process cloning failed for {stem} prompt {prompt_id}")
+            })?;
             let elapsed = t.elapsed().as_secs_f64();
             let audio_seconds = audio.duration_seconds();
-            ensure!(audio_seconds > 0.25, "generated speech too short for {stem}");
+            ensure!(
+                audio_seconds > 0.25,
+                "generated speech too short for {stem}"
+            );
             ensure!(audio.rms > 0.001, "generated speech silent for {stem}");
             let rtf = elapsed / audio_seconds;
             eprintln!(
