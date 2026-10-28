@@ -14,7 +14,9 @@ untouched.
 From repository root:
 
 ```bash
-bash scripts/prepare-candle-v4.sh integrations/candle-inprocess/vendor/pocket-tts
+bash scripts/prepare-candle-v4.sh /tmp/pocket-tts-candle-v4-audited
+bash scripts/attach-candle-inprocess.sh /tmp/pocket-tts-candle-v4-audited \
+  integrations/candle-inprocess/vendor/pocket-tts
 cargo test --manifest-path integrations/candle-inprocess/Cargo.toml
 cargo run --release --manifest-path integrations/candle-inprocess/Cargo.toml --bin probe -- \
   probe-english /tmp/inprocess-candle.wav
