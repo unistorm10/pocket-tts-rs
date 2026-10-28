@@ -7,7 +7,9 @@ use std::path::PathBuf;
 
 fn main() -> Result<()> {
     let mut args = std::env::args().skip(1);
-    let variant = args.next().context("variant: probe-english, probe-7m, probe-18m")?;
+    let variant = args
+        .next()
+        .context("variant: probe-english, probe-7m, probe-18m")?;
     let output = PathBuf::from(args.next().context("missing WAV output path")?);
     let text = args
         .next()
