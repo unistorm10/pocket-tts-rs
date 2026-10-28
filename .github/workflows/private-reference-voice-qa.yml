@@ -1,0 +1,139 @@
+name: Private reference-voice cloning acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      checkpoint:
+        description: "Full audited Pocket TTS checkpoint(s) to exercise"
+        required: true
+        type: choice
+        default: all
+        options:
+          - all
+          - probe-english
+          - probe-7m
+          - probe-18m
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pocket-private-reference-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  private-reference-voice-qa:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+    steps:
+      - name: Checkout inference implementation
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify required permissions
+        env:
+          REFERENCE_READ_TOKEN: ${{ secrets.REFERENCE_REPO_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${HF_TOKEN:-}" ]]; then
+            echo "::error::HF_TOKEN required for the full official checkpoints."
+            exit 1
+          fi
+          if [[ -z "${REFERENCE_READ_TOKEN:-}" ]]; then
+            echo "::error::Configure REFERENCE_REPO_READ_TOKEN with Contents:read for private unistorm10/reference."
+            exit 1
+          fi
+      - name: Checkout private speech references at pinned revision
+        uses: actions/checkout@v4
+        with:
+          repository: unistorm10/reference
+          ref: 10c52892ee68812682e14cebca3c3b596d3b5660
+          token: ${{ secrets.REFERENCE_REPO_READ_TOKEN }}
+          path: .private-reference
+          persist-credentials: false
+          submodules: false
+          lfs: false
+      - name: Verify private reference revision and files
+        run: |
+          set -euo pipefail
+          test "$(git -C .private-reference rev-parse HEAD)" = 10c52892ee68812682e14cebca3c3b596d3b5660
+          for n in 1 2 3 4 5; do
+            test -s ".private-reference/speech/reference_$n.wav"
+            test -s ".private-reference/speech/reference_$n.txt"
+          done
+          echo "Five original reference WAVs and transcripts available locally."
+          # Never print transcripts, waveforms or model-specific ICL embeddings.
+      - name: Prepare audited Candle source and in-process workspace
+        run: |
+          set -euo pipefail
+          source="$RUNNER_TEMP/pocket-private-candle-${GITHUB_RUN_ID}"
+          bash scripts/prepare-candle-v4.sh "$source"
+          bash scripts/attach-candle-inprocess.sh "$source" \
+            integrations/candle-inprocess/vendor/pocket-tts
+          cargo metadata --format-version 1 --no-deps \
+            --manifest-path integrations/candle-inprocess/Cargo.toml > /dev/null
+          cargo fmt --manifest-path integrations/candle-inprocess/Cargo.toml --all -- --check
+      - name: Build and test real in-process Candle
+        run: |
+          set -euo pipefail
+          export CARGO_TARGET_DIR="$HOME/.cache/pocket_tts_rs_candle_adapter_target"
+          cargo test --manifest-path integrations/candle-inprocess/Cargo.toml
+          cargo build --release --manifest-path integrations/candle-inprocess/Cargo.toml --bins
+      - name: Install user-space Python environment manager
+        uses: astral-sh/setup-uv@v6
+      - name: Prepare independent ASR and speaker verifier
+        run: |
+          set -euo pipefail
+          venv="$RUNNER_TEMP/pocket-private-reference-venv"
+          uv venv --python python3 "$venv"
+          uv pip install --python "$venv/bin/python" \
+            --index-url https://download.pytorch.org/whl/cpu \
+            "torch==2.7.1" "torchaudio==2.7.1"
+          uv pip install --python "$venv/bin/python" \
+            "faster-whisper==1.2.1" "av==17.1.0" \
+            "speechbrain==1.0.3" "huggingface_hub>=0.30,<1" \
+            "soundfile==0.13.1" "scipy==1.16.2" "numpy==2.2.6"
+          "$venv/bin/python" - <<'PY'
+          import torch, torchaudio, soundfile, scipy, numpy
+          from speechbrain.inference.speaker import SpeakerRecognition
+          assert torch.__version__.split("+")[0] == "2.7.1"
+          assert torchaudio.__version__.split("+")[0] == "2.7.1"
+          print("Independent speaker verifier ready.")
+          PY
+      - name: Clone all five private voices on audited checkpoint(s)
+        run: |
+          set -euo pipefail
+          output="$RUNNER_TEMP/pocket-private-reference-results"
+          mkdir -p "$output"
+          binary="$HOME/.cache/pocket_tts_rs_candle_adapter_target/release/reference_probe"
+          venv="$RUNNER_TEMP/pocket-private-reference-venv"
+          speech="$GITHUB_WORKSPACE/.private-reference/speech"
+          case "${{ inputs.checkpoint }}" in
+            all) variants=(probe-english probe-7m probe-18m) ;;
+            probe-english|probe-7m|probe-18m) variants=("${{ inputs.checkpoint }}") ;;
+            *) echo "::error::Unsupported checkpoint choice"; exit 2 ;;
+          esac
+          for variant in "${variants[@]}"; do
+            "$binary" "$variant" "$speech" "$output"
+            "$venv/bin/python" benchmarks/private_reference_qa.py \
+              --speech-dir "$speech" \
+              --generated-dir "$output" \
+              --variant "$variant" \
+              --output "$output/$variant.private-qa.json" \
+              --max-wer 0.35
+          done
+          echo "Private voice tests complete. Speaker identity diagnostic only until calibrated."
+      - name: Remove private corpus and generated audio
+        if: always()
+        run: |
+          rm -rf -- .private-reference
+          if [[ -n "${RUNNER_TEMP:-}" ]]; then
+            rm -rf -- "$RUNNER_TEMP/pocket-private-reference-results"
+            rm -rf -- "$RUNNER_TEMP/pocket-private-reference-venv"
+          fi
+          # No artifacts uploaded from this public GitHub repository.
