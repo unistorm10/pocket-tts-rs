@@ -88,8 +88,15 @@ fn main() -> Result<()> {
             }));
         }
     }
+    let cache_stats = engine.local_voice_cache_stats();
+    ensure!(
+        cache_stats.hits >= 5 && cache_stats.encodes == 5,
+        "expected one full Mimi encoding and at least one cache hit for each of five voices"
+    );
     let report = serde_json::json!({
         "schema_version": 1,
+        "local_voice_cache_hits": cache_stats.hits,
+        "local_voice_encoder_calls": cache_stats.encodes,
         "model_variant": variant,
         "model_load_ms": load_ms,
         "references": 5,

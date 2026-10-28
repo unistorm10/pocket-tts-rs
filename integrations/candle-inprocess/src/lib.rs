@@ -16,15 +16,36 @@ use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicU64, Ordering};
+use sha2::{Digest, Sha256};
 use std::time::Instant;
 
-/// A model loaded once and reused across generations, with reference-voice
-/// caching only for stable URL-based conditioning. Local files are re-encoded
-/// each time so updating a recorded voice never returns a stale clone.
+/// A model loaded once and reused across generations, caching both stable
+/// Hub voice states and local WAV voice states. Each local use hashes fresh
+/// file bytes before cache lookup, so changing a reference cannot return a
+/// stale voice. Source audio stays in memory and is never written to logs.
+const MAX_CACHED_LOCAL_VOICES: usize = 16;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LocalVoiceCacheStats {
+    /// Reuses of already encoded, content-matched local voice state.
+    pub hits: u64,
+    /// Real Mimi voice encodes from local WAV bytes.
+    pub encodes: u64,
+}
+
+struct LocalVoiceEntry {
+    digest: [u8; 32],
+    state: ModelState,
+}
+
 pub struct CandleInProcess {
     model: TTSModel,
     variant: String,
     stable_voice_cache: Mutex<HashMap<String, ModelState>>,
+    local_voice_cache: Mutex<HashMap<std::path::PathBuf, LocalVoiceEntry>>,
+    local_cache_hits: AtomicU64,
+    local_voice_encodes: AtomicU64,
 }
 
 impl CandleInProcess {
@@ -43,11 +64,67 @@ impl CandleInProcess {
             model,
             variant: variant.to_string(),
             stable_voice_cache: Mutex::new(HashMap::new()),
+            local_voice_cache: Mutex::new(HashMap::new()),
+            local_cache_hits: AtomicU64::new(0),
+            local_voice_encodes: AtomicU64::new(0),
         })
     }
 
     pub fn variant(&self) -> &str {
         &self.variant
+    }
+
+    /// Counters describe cache use within this resident engine instance.
+    /// They never include voice bytes, paths, hashes, or speaker identities.
+    pub fn local_voice_cache_stats(&self) -> LocalVoiceCacheStats {
+        LocalVoiceCacheStats {
+            hits: self.local_cache_hits.load(Ordering::Relaxed),
+            encodes: self.local_voice_encodes.load(Ordering::Relaxed),
+        }
+    }
+
+    fn local_voice_state(&self, path: &Path) -> Result<ModelState> {
+        // Digest bytes before lookup, rather than trusting coarse mtime/length
+        // metadata. Decode exactly these bytes to avoid a second path read.
+        let bytes = std::fs::read(path)
+            .with_context(|| format!("reading local speaker WAV {}", path.display()))?;
+        ensure!(!bytes.is_empty(), "empty local speaker WAV");
+        let digest: [u8; 32] = Sha256::digest(&bytes).into();
+        if let Some(entry) = self
+            .local_voice_cache
+            .lock()
+            .map_err(|_| anyhow::anyhow!("local voice cache mutex poisoned"))?
+            .get(path)
+        {
+            if entry.digest == digest {
+                self.local_cache_hits.fetch_add(1, Ordering::Relaxed);
+                return Ok(entry.state.clone());
+            }
+        }
+
+        // Never keep the mutex held during the full Mimi encoder operation.
+        let state = self
+            .model
+            .get_voice_state_from_bytes(&bytes)
+            .with_context(|| format!("encoding local speaker WAV {}", path.display()))?;
+        self.local_voice_encodes.fetch_add(1, Ordering::Relaxed);
+        let mut cache = self
+            .local_voice_cache
+            .lock()
+            .map_err(|_| anyhow::anyhow!("local voice cache mutex poisoned"))?;
+        if cache.len() >= MAX_CACHED_LOCAL_VOICES && !cache.contains_key(path) {
+            // Bound in-memory cached state count. Never spill original WAV
+            // bytes or voice embeddings to disk.
+            cache.clear();
+        }
+        cache.insert(
+            path.to_path_buf(),
+            LocalVoiceEntry {
+                digest,
+                state: state.clone(),
+            },
+        );
+        Ok(state)
     }
 
     fn voice_state(&self, voice: &Voice) -> Result<ModelState> {
@@ -60,10 +137,7 @@ impl CandleInProcess {
             ),
             Voice::HubAudio(url) => Some(url.as_str()),
             Voice::ReferenceAudio(path) => {
-                return self
-                    .model
-                    .get_voice_state(path)
-                    .with_context(|| format!("encoding local speaker WAV {}", path.display()));
+                return self.local_voice_state(path);
             }
             Voice::State(path) => {
                 let bytes = std::fs::read(path)

@@ -87,7 +87,12 @@ python benchmarks/private_reference_qa.py \
   --output /tmp/pocket-private-qa/reference-quality.json
 ```
 
-Create the output directory beforehand. The Rust test loads a resident Candle
+Create the output directory beforehand. The in-process adapter keeps up to 16 local voice states in memory, and
+validates each source WAV against a SHA-256 digest before reuse. A changed file
+is re-encoded; unchanged references are cached. The private probe asserts that
+five voices cause five encodes and at least five cache hits.
+
+The Rust test loads a resident Candle
 model, then for **each of five source voices** generates two unseen utterances
 conditioned directly on the local WAV (10 clips per model). The independent
 SpeechBrain ECAPA speaker evaluator scores generated-vs-conditioning and
