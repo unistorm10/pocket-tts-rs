@@ -31,7 +31,10 @@ fn main() -> Result<()> {
         let reference = speech_dir.join(format!("{stem}.wav"));
         let transcript = speech_dir.join(format!("{stem}.txt"));
         ensure!(reference.is_file(), "reference audio missing for {stem}");
-        ensure!(transcript.is_file(), "reference transcript missing for {stem}");
+        ensure!(
+            transcript.is_file(),
+            "reference transcript missing for {stem}"
+        );
         ensure!(
             !std::fs::read_to_string(&transcript)?.trim().is_empty(),
             "empty reference transcript for {stem}"
