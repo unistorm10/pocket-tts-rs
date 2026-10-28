@@ -55,6 +55,9 @@ def evaluate(speech_dir: Path, output_dir: Path, variant: str, max_wer: float) -
     }
     records = []
     failures = []
+    # Encode each source once. Rank the clone against all five sources only
+    # diagnostically: multiple recordings may belong to the same person.
+    reference_embeddings = {}
     for index in range(1, 6):
         label = f"reference_{index}"
         reference = speech_dir / f"{label}.wav"
@@ -63,7 +66,10 @@ def evaluate(speech_dir: Path, output_dir: Path, variant: str, max_wer: float) -
             raise ValueError(f"missing WAV/transcript for {label}")
         if not transcript.read_text(encoding="utf-8").strip():
             raise ValueError(f"empty reference transcript for {label}")
-        ref_embedding = speaker_embedding(speaker, reference)
+        reference_embeddings[label] = speaker_embedding(speaker, reference)
+    for index in range(1, 6):
+        label = f"reference_{index}"
+        ref_embedding = reference_embeddings[label]
         for prompt_id, phrase in PROMPTS.items():
             wav_name = f"private-clone-{variant}-{label}-p{prompt_id}.wav"
             wav = output_dir / wav_name
@@ -76,6 +82,13 @@ def evaluate(speech_dir: Path, output_dir: Path, variant: str, max_wer: float) -
             wer = edit_distance(expected, observed) / len(expected)
             clone_embedding = speaker_embedding(speaker, wav)
             own_score = speaker_score(clone_embedding, ref_embedding)
+            other_reference_scores = {
+                name: speaker_score(clone_embedding, embedding)
+                for name, embedding in reference_embeddings.items() if name != label
+            }
+            conditioning_rank = 1 + sum(
+                score > own_score for score in other_reference_scores.values()
+            )
             background_scores = {
                 name: speaker_score(clone_embedding, embedding)
                 for name, embedding in anchors.items()
@@ -94,6 +107,11 @@ def evaluate(speech_dir: Path, output_dir: Path, variant: str, max_wer: float) -
                     k: round(v, 6) for k, v in background_scores.items()
                 },
                 "conditioning_ranked_closest": reference_is_closest,
+                "conditioning_rank_among_five": conditioning_rank,
+                "nonconditioning_reference_scores": {
+                    k: round(v, 6) for k, v in other_reference_scores.items()
+                },
+                "cross_reference_identities_unverified": True,
                 "speaker_fidelity_calibrated": False,
                 "acoustics": {
                     "duration_s": acoustic["duration_s"],
@@ -140,7 +158,8 @@ def main() -> None:
                   "private_audio_or_transcripts_exported": False}
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(report, indent=2) + "\n")
-        raise
+        print("PRIVATE_REFERENCE_QA_FAILED error_type=" + type(exc).__name__, flush=True)
+        raise SystemExit(1) from None
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + "\n")
     print(
