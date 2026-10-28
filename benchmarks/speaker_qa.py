@@ -15,6 +15,10 @@ import math
 from pathlib import Path
 
 from huggingface_hub import hf_hub_download
+import numpy as np
+import soundfile as sf
+from scipy.signal import resample_poly
+import torch
 from speechbrain.inference.speaker import SpeakerRecognition
 
 VOICES_REPO = "kyutai/tts-voices"
@@ -22,9 +26,54 @@ REFERENCE = "alba-mackenna/casual.wav"
 POSITIVE = "alba-mackenna/announcer.wav"
 NEGATIVE = "voice-zero/bill_boerst.wav"
 
-def speaker_score(model: SpeakerRecognition, a: Path, b: Path) -> float:
-    score, _ = model.verify_files(str(a), str(b))
-    value = float(score.detach().cpu().flatten()[0])
+SPEAKER_SAMPLE_RATE = 16_000
+
+
+def load_waveform(path: Path) -> torch.Tensor:
+    """Read audio independently of torchaudio backends, resampling to 16 kHz.
+
+    SpeechBrain 1.0.3's verify_files() calls torchaudio.load(), which is not
+    usable on all minimal Linux runners. Its verify_batch()/encode_batch()
+    accept waveforms directly, so preserve the identical ECAPA model and
+    cosine metric while using libsndfile for decoding.
+    """
+    waveform, rate = sf.read(str(path), dtype="float32", always_2d=True)
+    if rate <= 0 or waveform.ndim != 2 or waveform.shape[1] < 1:
+        raise ValueError(f"invalid waveform format: {path}")
+    if not np.isfinite(waveform).all():
+        raise ValueError(f"non-finite audio samples: {path}")
+    mono = waveform.mean(axis=1, dtype=np.float32)
+    if rate != SPEAKER_SAMPLE_RATE:
+        factor = math.gcd(rate, SPEAKER_SAMPLE_RATE)
+        mono = resample_poly(
+            mono, SPEAKER_SAMPLE_RATE // factor, rate // factor
+        ).astype(np.float32, copy=False)
+    if mono.size < SPEAKER_SAMPLE_RATE:
+        raise ValueError(f"speaker sample must contain at least 1 s: {path}")
+    rms = float(np.sqrt(np.mean(mono.astype(np.float64) ** 2)))
+    if not math.isfinite(rms) or rms < 1e-6:
+        raise ValueError(f"speaker sample is silent: {path}")
+    return torch.from_numpy(np.ascontiguousarray(mono)).unsqueeze(0)
+
+
+def speaker_embedding(model: SpeakerRecognition, path: Path) -> torch.Tensor:
+    """Compute ECAPA once per file, using the model's own 16-kHz audio contract."""
+    waveform = load_waveform(path)
+    with torch.inference_mode():
+        embedding = model.encode_batch(waveform, normalize=False).flatten()
+    if not torch.isfinite(embedding).all():
+        raise ValueError(f"non-finite speaker embedding: {path}")
+    if embedding.numel() == 0:
+        raise ValueError(f"empty speaker embedding: {path}")
+    return embedding
+
+
+def speaker_score(a: torch.Tensor, b: torch.Tensor) -> float:
+    # Identical embedding/cosine semantics to SpeakerRecognition.verify_batch;
+    # no internal torchaudio file-loading backend is required.
+    value = float(torch.nn.functional.cosine_similarity(
+        a, b, dim=0, eps=1e-6
+    ).item())
     if not math.isfinite(value):
         raise ValueError("speaker embedding similarity is non-finite")
     return value
@@ -47,6 +96,7 @@ def main() -> None:
     report = {
         "model": "speechbrain/spkrec-ecapa-voxceleb",
         "model_type": "independent pretrained ECAPA-TDNN speaker embedding",
+        "audio_reader": "soundfile+scipy (16 kHz mono, no torchaudio backend)",
         "generated_file": args.generated.name,
         "controls": {
             "reference": REFERENCE,
@@ -70,12 +120,22 @@ def main() -> None:
             savedir=str(Path.home()/".cache"/"pocket_tts_rs_speaker_ecapa"),
             run_opts={"device": "cpu"},
         )
+        embeddings = {
+            "generated": speaker_embedding(classifier, args.generated),
+            "reference": speaker_embedding(classifier, ref),
+            "positive_control": speaker_embedding(classifier, pos),
+            "negative_control": speaker_embedding(classifier, neg),
+        }
+        generated = embeddings["generated"]
+        reference = embeddings["reference"]
+        positive = embeddings["positive_control"]
+        negative = embeddings["negative_control"]
         comparisons = {
-            "generated_vs_reference": speaker_score(classifier, args.generated, ref),
-            "generated_vs_other_same_speaker": speaker_score(classifier, args.generated, pos),
-            "reference_vs_other_same_speaker": speaker_score(classifier, ref, pos),
-            "reference_vs_different_speaker": speaker_score(classifier, ref, neg),
-            "generated_vs_different_speaker": speaker_score(classifier, args.generated, neg),
+            "generated_vs_reference": speaker_score(generated, reference),
+            "generated_vs_other_same_speaker": speaker_score(generated, positive),
+            "reference_vs_other_same_speaker": speaker_score(reference, positive),
+            "reference_vs_different_speaker": speaker_score(reference, negative),
+            "generated_vs_different_speaker": speaker_score(generated, negative),
         }
         comparisons["generated_reference_margin_over_impostor"] = (
             comparisons["generated_vs_reference"] -
