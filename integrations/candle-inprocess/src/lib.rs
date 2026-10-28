@@ -11,13 +11,13 @@ use pocket_tts_model::{
     GeneratedAudio, StreamingSynthesisEngine, SynthesisEngine, SynthesisRequest, Voice,
     resident::{StreamTiming, finalize_streamed_wav},
 };
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
-use sha2::{Digest, Sha256};
 use std::time::Instant;
 
 /// A model loaded once and reused across generations, caching both stable
