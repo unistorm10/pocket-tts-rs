@@ -157,14 +157,19 @@ jobs:
           set -euo pipefail
           root="$RUNNER_TEMP/candle-real-diagnosis"
           binary="$HOME/.cache/pocket_tts_rs_candle_adapter_target/release/probe"
-          "$binary" probe-english "$root/inprocess-english.wav" \
-            "Testing real Candle synthesis with a cloned voice."
           venv="$HOME/.cache/pocket_tts_rs_audio_qa_venv"
-          "$venv/bin/python" benchmarks/audio_qa.py \
-            --wav "$root/inprocess-english.wav" \
-            --output "$root/inprocess-english.quality.json" \
-            --expected-text "Testing real Candle synthesis with a cloned voice." \
-            --asr-model "small.en" --threads 4 --max-wer 0.35
+          # Each official full voice-cloning checkpoint must work in process.
+          # Retain all three real WAVs for independent speaker evaluation.
+          for variant in probe-english probe-7m probe-18m; do
+            name="${variant/probe/inprocess}"
+            "$binary" "$variant" "$root/$name.wav" \
+              "Testing real Candle synthesis with a cloned voice."
+            "$venv/bin/python" benchmarks/audio_qa.py \
+              --wav "$root/$name.wav" \
+              --output "$root/$name.quality.json" \
+              --expected-text "Testing real Candle synthesis with a cloned voice." \
+              --asr-model "small.en" --threads 4 --max-wer 0.35
+          done
       - name: Independently assess cloned speaker similarity
         run: |
           set -euo pipefail
@@ -190,9 +195,9 @@ jobs:
           PY
           root="$RUNNER_TEMP/candle-real-diagnosis"
           failures=0
-          # Include the direct in-process full-100M output alongside the three
-          # externally generated full checkpoints. No skipped speaker check.
-          for variant in probe-english probe-7m probe-18m inprocess-english; do
+          # Compare the three direct in-process outputs and three upstream
+          # controls. Every real cloned-voice result must pass this ranking gate.
+          for variant in probe-english probe-7m probe-18m inprocess-english inprocess-7m inprocess-18m; do
             "$venv/bin/python" benchmarks/speaker_qa.py \
               --generated "$root/$variant.wav" \
               --output "$root/$variant.speaker.json" \
