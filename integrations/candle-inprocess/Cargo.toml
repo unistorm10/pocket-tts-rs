@@ -19,3 +19,4 @@ exclude = ["vendor/pocket-tts"]
 anyhow = "1"
 pocket-tts-model = { path = "../../crates/pocket-tts-model" }
 pocket-tts = { path = "vendor/pocket-tts/crates/pocket-tts" }
+serde_json = "1"
