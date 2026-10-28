@@ -151,7 +151,7 @@ jobs:
           set -euo pipefail
           export CARGO_TARGET_DIR="$HOME/.cache/pocket_tts_rs_candle_adapter_target"
           cargo test --manifest-path integrations/candle-inprocess/Cargo.toml
-          cargo build --release --manifest-path integrations/candle-inprocess/Cargo.toml --bin probe
+          cargo build --release --manifest-path integrations/candle-inprocess/Cargo.toml --bins
       - name: Real in-process Candle inference and independent speech check
         run: |
           set -euo pipefail
@@ -168,6 +168,23 @@ jobs:
               --wav "$root/$name.wav" \
               --output "$root/$name.quality.json" \
               --expected-text "Testing real Candle synthesis with a cloned voice." \
+              --asr-model "small.en" --threads 4 --max-wer 0.35
+          done
+      - name: Verify persistent in-process Candle streaming and warm-session metrics
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/candle-real-diagnosis"
+          binary="$HOME/.cache/pocket_tts_rs_candle_adapter_target/release/session_probe"
+          venv="$HOME/.cache/pocket_tts_rs_audio_qa_venv"
+          # One model stays loaded for both requests. The probe checks the
+          # streaming callback, first real PCM timing, RIFF finalization,
+          # and that reported byte counts match saved WAV files.
+          "$binary" probe-english "$root"
+          for label in cold warm; do
+            "$venv/bin/python" benchmarks/audio_qa.py \
+              --wav "$root/session-probe-english-$label.wav" \
+              --output "$root/session-probe-english-$label.quality.json" \
+              --expected-text "Testing persistent Candle streaming with a cloned voice." \
               --asr-model "small.en" --threads 4 --max-wer 0.35
           done
       - name: Independently assess cloned speaker similarity
@@ -197,7 +214,7 @@ jobs:
           failures=0
           # Compare the three direct in-process outputs and three upstream
           # controls. Every real cloned-voice result must pass this ranking gate.
-          for variant in probe-english probe-7m probe-18m inprocess-english inprocess-7m inprocess-18m; do
+          for variant in probe-english probe-7m probe-18m inprocess-english inprocess-7m inprocess-18m session-probe-english-cold session-probe-english-warm; do
             "$venv/bin/python" benchmarks/speaker_qa.py \
               --generated "$root/$variant.wav" \
               --output "$root/$variant.speaker.json" \
@@ -218,5 +235,6 @@ jobs:
             ${{ runner.temp }}/candle-real-diagnosis/*.log
             ${{ runner.temp }}/candle-real-diagnosis/*.quality.json
             ${{ runner.temp }}/candle-real-diagnosis/*.speaker.json
+            ${{ runner.temp }}/candle-real-diagnosis/*.metrics.json
           if-no-files-found: warn
           retention-days: 30
