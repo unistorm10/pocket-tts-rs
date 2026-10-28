@@ -62,11 +62,17 @@ repository secrets in `pocket-tts-rs` before dispatching it:
 - `REFERENCE_REPO_READ_TOKEN`: a fine-grained GitHub token with **Contents:
   Read-only** restricted to the private `unistorm10/reference` repository.
 
-Open GitHub Actions → **Private reference-voice cloning acceptance** → **Run
-workflow**, select `feat/standalone-v4-foundation`, and choose `all` for
-all three full checkpoints. The job pins the private reference commit and uses
-no submodules. The standard `GITHUB_TOKEN` for `pocket-tts-rs` cannot be
-assumed to read another private repository.
+Because this workflow is still on `feat/standalone-v4-foundation`,
+it runs on relevant pushes to that branch. After adding the secrets, open
+GitHub Actions → **Private reference-voice cloning acceptance**, choose the
+latest failed permissions-check run and **Re-run failed jobs**. Its default
+mode tests all three full checkpoints. The `Run workflow` button for
+`workflow_dispatch` requires the workflow to exist on the default branch;
+that manual option becomes available after the workflow is merged.
+
+The job pins the private reference commit and uses no submodules. The standard
+`GITHUB_TOKEN` for `pocket-tts-rs` does not automatically grant read access
+to another private repository.
 
 For local, trusted machines, prepare the audited Candle source and run:
 
