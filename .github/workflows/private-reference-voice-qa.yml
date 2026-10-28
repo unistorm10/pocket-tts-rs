@@ -1,6 +1,12 @@
 name: Private reference-voice cloning acceptance
 
 on:
+  push:
+    branches: [feat/standalone-v4-foundation]
+    paths:
+      - '.github/workflows/private-reference-voice-qa.yml'
+      - 'integrations/candle-inprocess/**'
+      - 'benchmarks/private_reference_qa.py'
   workflow_dispatch:
     inputs:
       checkpoint:
@@ -113,9 +119,10 @@ jobs:
           binary="$HOME/.cache/pocket_tts_rs_candle_adapter_target/release/reference_probe"
           venv="$RUNNER_TEMP/pocket-private-reference-venv"
           speech="$GITHUB_WORKSPACE/.private-reference/speech"
-          case "${{ inputs.checkpoint }}" in
+          chosen="${{ inputs.checkpoint || 'all' }}"
+          case "$chosen" in
             all) variants=(probe-english probe-7m probe-18m) ;;
-            probe-english|probe-7m|probe-18m) variants=("${{ inputs.checkpoint }}") ;;
+            probe-english|probe-7m|probe-18m) variants=("$chosen") ;;
             *) echo "::error::Unsupported checkpoint choice"; exit 2 ;;
           esac
           for variant in "${variants[@]}"; do
