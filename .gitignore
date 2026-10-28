@@ -1,1 +1,4 @@
 /target
+
+# Private reference voices checked out only inside trusted CI jobs.
+.private-reference/
