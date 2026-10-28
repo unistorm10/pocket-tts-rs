@@ -178,9 +178,10 @@ jobs:
             --index-url https://download.pytorch.org/whl/cpu \
             "torch==2.7.1" "torchaudio==2.7.1"
           uv pip install --python "$venv/bin/python" \
-            "speechbrain==1.0.3" "huggingface_hub>=0.30,<1"
+            "speechbrain==1.0.3" "huggingface_hub>=0.30,<1" \
+            "soundfile==0.13.1" "scipy==1.16.2" "numpy==2.2.6"
           "$venv/bin/python" - <<'PY'
-          import torch, torchaudio
+          import torch, torchaudio, soundfile, scipy, numpy
           from speechbrain.inference.speaker import SpeakerRecognition
           assert torch.__version__.split("+")[0] == "2.7.1"
           assert torchaudio.__version__.split("+")[0] == "2.7.1"
@@ -189,7 +190,9 @@ jobs:
           PY
           root="$RUNNER_TEMP/candle-real-diagnosis"
           failures=0
-          for variant in probe-english probe-7m probe-18m; do
+          # Include the direct in-process full-100M output alongside the three
+          # externally generated full checkpoints. No skipped speaker check.
+          for variant in probe-english probe-7m probe-18m inprocess-english; do
             "$venv/bin/python" benchmarks/speaker_qa.py \
               --generated "$root/$variant.wav" \
               --output "$root/$variant.speaker.json" \
