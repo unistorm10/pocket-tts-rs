@@ -199,7 +199,7 @@ fn main() -> Result<()> {
     match command.as_str() {
         "prefetch" => {
             let model = args.next().context(usage())?;
-            for arg in args {
+            if let Some(arg) = args.next() {
                 bail!(
                     "unsupported argument {arg:?}: encoder-disabled models are prohibited; {}",
                     usage()
