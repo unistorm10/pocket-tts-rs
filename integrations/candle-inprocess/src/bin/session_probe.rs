@@ -4,8 +4,7 @@
 use anyhow::{Context, Result, ensure};
 use pocket_tts_candle_inprocess::CandleInProcess;
 use pocket_tts_model::{
-    StreamingSynthesisEngine, SynthesisRequest, Voice, inspect_wav,
-    resident::finalize_streamed_wav,
+    StreamingSynthesisEngine, SynthesisRequest, Voice, inspect_wav, resident::finalize_streamed_wav,
 };
 use std::fs::File;
 use std::io::Write;
@@ -23,12 +22,19 @@ fn streamed_request(
     let mut chunks = 0usize;
     let timing = engine.stream_wav(request, &mut |bytes| {
         if chunks == 0 {
-            ensure!(bytes.len() == 44 && &bytes[..4] == b"RIFF", "invalid initial WAV header");
+            ensure!(
+                bytes.len() == 44 && &bytes[..4] == b"RIFF",
+                "invalid initial WAV header"
+            );
         } else {
-            ensure!(!bytes.is_empty() && bytes.len() % 2 == 0, "invalid streamed PCM chunk");
+            ensure!(
+                !bytes.is_empty() && bytes.len() % 2 == 0,
+                "invalid streamed PCM chunk"
+            );
         }
         chunks += 1;
-        file.write_all(bytes).context("writing streamed audio chunk")
+        file.write_all(bytes)
+            .context("writing streamed audio chunk")
     });
     let timing = match timing {
         Ok(result) => result,
@@ -42,10 +48,22 @@ fn streamed_request(
     drop(file);
     finalize_streamed_wav(output)?;
     let audio = inspect_wav(output)?;
-    ensure!(chunks > 1, "model did not emit a PCM chunk after the header");
-    ensure!(audio.samples > 24_000, "streamed model emitted less than 1 second");
-    ensure!(timing.first_pcm >= timing.headers, "first PCM preceded WAV header");
-    ensure!(timing.total >= timing.first_pcm, "total synthesis shorter than first PCM");
+    ensure!(
+        chunks > 1,
+        "model did not emit a PCM chunk after the header"
+    );
+    ensure!(
+        audio.samples > 24_000,
+        "streamed model emitted less than 1 second"
+    );
+    ensure!(
+        timing.first_pcm >= timing.headers,
+        "first PCM preceded WAV header"
+    );
+    ensure!(
+        timing.total >= timing.first_pcm,
+        "total synthesis shorter than first PCM"
+    );
     ensure!(
         timing.received_bytes == std::fs::metadata(output)?.len(),
         "stream timing byte count differs from written output"
@@ -64,7 +82,9 @@ fn streamed_request(
 
 fn main() -> Result<()> {
     let mut args = std::env::args().skip(1);
-    let variant = args.next().context("usage: session_probe VARIANT OUTPUT_DIR")?;
+    let variant = args
+        .next()
+        .context("usage: session_probe VARIANT OUTPUT_DIR")?;
     let output_dir = PathBuf::from(args.next().context("missing output directory")?);
     ensure!(args.next().is_none(), "unexpected extra arguments");
     ensure!(output_dir.is_dir(), "output directory does not exist");
@@ -74,9 +94,7 @@ fn main() -> Result<()> {
     let request = SynthesisRequest {
         text: SENTENCE.to_owned(),
         language: "english".to_owned(),
-        voice: Voice::HubAudio(
-            "hf://kyutai/tts-voices/alba-mackenna/casual.wav".to_owned(),
-        ),
+        voice: Voice::HubAudio("hf://kyutai/tts-voices/alba-mackenna/casual.wav".to_owned()),
         quantize: false,
     };
     let mut reports = Vec::new();
