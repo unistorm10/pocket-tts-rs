@@ -40,6 +40,8 @@ jobs:
 
       - name: Validate reproducible Candle source preparation script
         run: bash -n scripts/prepare-candle-v4.sh
+      - name: Validate isolated Candle workspace attachment script
+        run: bash -n scripts/attach-candle-inprocess.sh
 
       - name: Verify formatting
         run: cargo fmt --all -- --check
