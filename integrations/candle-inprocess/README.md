@@ -54,25 +54,28 @@ discrete codes and token IDs **cannot be supplied as Pocket TTS voice states**.
 Pocket TTS conditions on the original WAVs through its complete Mimi encoder.
 
 For CI, the reference repository must **not** be copied into this public source
-repository or uploaded as artifacts. `.github/workflows/private-reference-voice-qa.yml`
-is an explicitly dispatched, self-hosted Linux job. Set the following encrypted
-repository secrets in `pocket-tts-rs` before dispatching it:
+repository or uploaded as artifacts. The workflow now lives **in the private
+reference repository itself**:
+[`unistorm10/reference/.github/workflows/pocket-tts-reference-qa.yml`](https://github.com/unistorm10/reference/blob/master/.github/workflows/pocket-tts-reference-qa.yml).
 
-- `HF_TOKEN`: authorized access to official full checkpoints.
-- `REFERENCE_REPO_READ_TOKEN`: a fine-grained GitHub token with **Contents:
-  Read-only** restricted to the private `unistorm10/reference` repository.
+This intentionally uses the private repository's own `GITHUB_TOKEN` to read its
+five voice WAVs. A separate cross-repository GitHub personal access token
+(`REFERENCE_REPO_READ_TOKEN`) is **not required**. The old public workflow
+with that unnecessary token requirement was retired.
 
-Because this workflow is still on `feat/standalone-v4-foundation`,
-it runs on relevant pushes to that branch. After adding the secrets, open
-GitHub Actions → **Private reference-voice cloning acceptance**, choose the
-latest failed permissions-check run and **Re-run failed jobs**. Its default
-mode tests all three full checkpoints. The `Run workflow` button for
-`workflow_dispatch` requires the workflow to exist on the default branch;
-that manual option becomes available after the workflow is merged.
+The private workflow first validates all five WAVs and transcripts without
+printing their contents. When `HF_TOKEN` is configured as a secret accessible
+to **`unistorm10/reference`**, it also checks out the **pinned public adapter
+commit** and runs all three official full checkpoints against all five voices,
+with independent ASR and ECAPA evaluation. The original files and generated
+speech remain in the private job and are not uploaded.
 
-The job pins the private reference commit and uses no submodules. The standard
-`GITHUB_TOKEN` for `pocket-tts-rs` does not automatically grant read access
-to another private repository.
+The workflow uses `[self-hosted, linux]`. If the Linux runner is registered
+only for `pocket-tts-rs`, it also needs to be made available to `reference`
+through its runner configuration. GitHub-hosted execution was attempted, but
+the private job failed before any runner was allocated; that failure does **not**
+verify anything about the audio. Missing model access skips full cloning
+rather than silently testing unlicensed or reduced checkpoints.
 
 For local, trusted machines, prepare the audited Candle source and run:
 
