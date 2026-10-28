@@ -10,6 +10,10 @@ description = "Experimental direct Candle Pocket TTS engine, kept isolated until
 # vendored and validated; must not change the root workspace Cargo.lock.
 [workspace]
 resolver = "2"
+# Cargo implicitly includes in-tree path dependencies as workspace members.
+# This audited source has its own workspace and must never become an implicit
+# member of this isolated adapter workspace.
+exclude = ["vendor/pocket-tts"]
 
 [dependencies]
 anyhow = "1"
