@@ -141,15 +141,13 @@ jobs:
       - name: Build in-process Candle adapter against the audited patched source
         run: |
           set -euo pipefail
-          # Do not symlink the nested Cargo workspace: Cargo resolves
-          # workspace-inherited fields through the symlink's parent and
-          # incorrectly treats this integration workspace as its root.
-          # Source stays ignored by git, and is pinned/patched upstream.
-          dest="integrations/candle-inprocess/vendor/pocket-tts"
-          mkdir -p "$dest"
-          cp -a "$UPSTREAM_CANDLE/." "$dest/"
-          test "$(git -C "$dest" rev-parse HEAD)" = dbf78c816cd83c89f11dbeb9d87290ad0a3dccd0
+          # Nested path dependencies otherwise inherit the outer Cargo workspace.
+          # Explicitly anchor the patched Candle crate to its original workspace.
+          bash scripts/attach-candle-inprocess.sh "$UPSTREAM_CANDLE" \
+            integrations/candle-inprocess/vendor/pocket-tts
           export CARGO_TARGET_DIR="$HOME/.cache/pocket_tts_rs_candle_adapter_target"
+          cargo metadata --format-version 1 --no-deps \
+            --manifest-path integrations/candle-inprocess/Cargo.toml > /dev/null
           cargo fmt --manifest-path integrations/candle-inprocess/Cargo.toml --all -- --check
           cargo test --manifest-path integrations/candle-inprocess/Cargo.toml
           cargo build --release --manifest-path integrations/candle-inprocess/Cargo.toml --bin probe
