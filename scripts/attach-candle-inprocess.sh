@@ -35,7 +35,7 @@ marker = "[package]\n"
 if data.count(marker) != 1:
     raise SystemExit("unexpected upstream Candle package manifest shape")
 section = data.split("[dependencies]", 1)[0]
-if "workspace = " in section:
+if any(line.strip().startswith("workspace =") for line in section.splitlines()):
     raise SystemExit("upstream already sets a workspace root; review manually")
 path.write_text(data.replace(marker, '[package]\nworkspace = "../.."\n', 1))
 print("Candle package inherits its OWN upstream workspace, not the adapter workspace")
