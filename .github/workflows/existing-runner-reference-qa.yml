@@ -1,0 +1,124 @@
+name: Pocket TTS local reference-voice acceptance (existing runner)
+
+on:
+  push:
+    branches: [feat/standalone-v4-foundation]
+    paths:
+      - '.github/workflows/existing-runner-reference-qa.yml'
+      - 'scripts/find-existing-reference-voices.sh'
+      - 'integrations/candle-inprocess/**'
+      - 'benchmarks/private_reference_qa.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pocket-tts-local-reference-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  original-voice-acceptance:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 150
+    defaults:
+      run:
+        shell: bash
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      # Optional existing machine path, NOT a GitHub personal access token.
+      POCKET_TTS_REFERENCE_DIR: ${{ vars.POCKET_TTS_REFERENCE_DIR }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Locate real private reference WAVs on this existing runner
+        run: |
+          bash -n scripts/find-existing-reference-voices.sh
+          bash scripts/find-existing-reference-voices.sh
+      - name: Verify original corpus without printing its contents
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, pathlib, wave
+          base = pathlib.Path(os.environ["PRIVATE_REFERENCE_SPEECH_DIR"])
+          for i in range(1, 6):
+              wav = base / f"reference_{i}.wav"
+              txt = base / f"reference_{i}.txt"
+              assert wav.is_file() and txt.is_file() and txt.stat().st_size > 0
+              with wave.open(str(wav), "rb") as sample:
+                  assert 8000 <= sample.getframerate() <= 192000
+                  assert sample.getnchannels() in (1, 2)
+                  assert sample.getnframes() >= sample.getframerate()
+              print(f"REFERENCE_CORPUS_WAV_OK reference={i}")
+          PY
+      - name: Verify full official model permission
+        run: |
+          if [[ -z "${HF_TOKEN:-}" ]]; then
+            echo "::error::HF_TOKEN missing; refusing reduced or mock model."
+            exit 1
+          fi
+      - name: Prepare audited Candle source and native adapter
+        run: |
+          set -euo pipefail
+          source="$RUNNER_TEMP/pocket-ref-candle-${GITHUB_RUN_ID}"
+          bash scripts/prepare-candle-v4.sh "$source"
+          bash scripts/attach-candle-inprocess.sh "$source" \
+            integrations/candle-inprocess/vendor/pocket-tts
+          cargo metadata --format-version 1 --no-deps \
+            --manifest-path integrations/candle-inprocess/Cargo.toml >/dev/null
+          cargo fmt --manifest-path integrations/candle-inprocess/Cargo.toml --all -- --check
+          export CARGO_TARGET_DIR="$HOME/.cache/pocket_tts_rs_candle_adapter_target"
+          cargo test --manifest-path integrations/candle-inprocess/Cargo.toml
+          cargo build --release --manifest-path integrations/candle-inprocess/Cargo.toml --bin reference_probe
+      - uses: astral-sh/setup-uv@v6
+      - name: Install independent ASR and speaker assessment tools
+        run: |
+          set -euo pipefail
+          venv="$RUNNER_TEMP/pocket-reference-qa-venv"
+          uv venv --python python3 "$venv"
+          uv pip install --python "$venv/bin/python" \
+            --index-url https://download.pytorch.org/whl/cpu \
+            "torch==2.7.1" "torchaudio==2.7.1"
+          uv pip install --python "$venv/bin/python" \
+            "speechbrain==1.0.3" "huggingface_hub>=0.30,<1" \
+            "faster-whisper==1.2.1" "av==17.1.0" \
+            "soundfile==0.13.1" "scipy==1.16.2" "numpy==2.2.6"
+      - name: Test five local voices on three full checkpoints
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/pocket-original-voice-results"
+          mkdir -p "$root"
+          binary="$HOME/.cache/pocket_tts_rs_candle_adapter_target/release/reference_probe"
+          python="$RUNNER_TEMP/pocket-reference-qa-venv/bin/python"
+          failed=0
+          for variant in probe-english probe-7m probe-18m; do
+            if "$binary" "$variant" "$PRIVATE_REFERENCE_SPEECH_DIR" "$root"; then
+              if ! "$python" benchmarks/private_reference_qa.py \
+                --speech-dir "$PRIVATE_REFERENCE_SPEECH_DIR" \
+                --generated-dir "$root" \
+                --variant "$variant" \
+                --output "$root/$variant.private-qa.json" \
+                --max-wer 0.35; then
+                echo "::error::Private reference QA failed for $variant."
+                failed=$((failed + 1))
+              fi
+            else
+              echo "::error::Real reference synthesis failed for $variant."
+              failed=$((failed + 1))
+            fi
+          done
+          if (( failed > 0 )); then
+            echo "::error::$failed checkpoints failed private reference acceptance."
+            exit 1
+          fi
+          echo 'PRIVATE_REFERENCE_ALL_CHECKPOINTS_ASR_AND_ACOUSTICS_PASSED'
+          echo 'ECAPA similarity remains diagnostic without verified speaker identity labels.'
+      - name: Remove transient reference checkout and synthesized voices
+        if: always()
+        run: |
+          rm -rf -- "$RUNNER_TEMP/pocket-private-reference-${GITHUB_RUN_ID}"
+          rm -rf -- "$RUNNER_TEMP/pocket-original-voice-results"
+          rm -rf -- "$RUNNER_TEMP/pocket-reference-qa-venv"
+          # Pre-existing local reference WAVs are not deleted or modified.
+          # No artifacts are published and no private WAVs are committed.
